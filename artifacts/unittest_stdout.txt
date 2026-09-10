@@ -1,0 +1,18 @@
+test_adapter_uses_the_same_service_contract (test_explorer_service.ExplorerServiceTests.test_adapter_uses_the_same_service_contract) ... ok
+test_catalog_covers_all_required_element_operations (test_explorer_service.ExplorerServiceTests.test_catalog_covers_all_required_element_operations) ... ok
+test_dry_run_changes_nothing_and_session_update_is_visible_only_in_memory (test_explorer_service.ExplorerServiceTests.test_dry_run_changes_nothing_and_session_update_is_visible_only_in_memory) ... ok
+test_graph_validation_finds_the_two_intentional_orion_issues (test_explorer_service.ExplorerServiceTests.test_graph_validation_finds_the_two_intentional_orion_issues) ... ok
+test_list_and_get_are_sorted_and_json_safe (test_explorer_service.ExplorerServiceTests.test_list_and_get_are_sorted_and_json_safe) ... ok
+test_missing_and_invalid_input_have_stable_errors (test_explorer_service.ExplorerServiceTests.test_missing_and_invalid_input_have_stable_errors) ... ok
+test_persistent_write_requires_opt_in_and_then_survives_reload (test_explorer_service.ExplorerServiceTests.test_persistent_write_requires_opt_in_and_then_survives_reload) ... ok
+test_report_is_readable_and_mentions_the_design (test_explorer_service.ExplorerServiceTests.test_report_is_readable_and_mentions_the_design) ... ok
+test_service_constructor_protects_the_canonical_fixture_too (test_explorer_service.ExplorerServiceTests.test_service_constructor_protects_the_canonical_fixture_too) ... ok
+test_smart_search_avoids_a_substring_false_positive (test_explorer_service.ExplorerServiceTests.test_smart_search_avoids_a_substring_false_positive) ... ok
+test_in_process_protocol_errors_are_json_rpc_errors (test_mcp_server.McpServerTests.test_in_process_protocol_errors_are_json_rpc_errors) ... ok
+test_server_refuses_to_enable_persistence_for_canonical_file (test_mcp_server.McpServerTests.test_server_refuses_to_enable_persistence_for_canonical_file) ... ok
+test_stdio_server_discovers_and_calls_tools (test_mcp_server.McpServerTests.test_stdio_server_discovers_and_calls_tools) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 0.105s
+
+OK

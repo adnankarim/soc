@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-10T05:44:40.455425+00:00",
+  "generated_at": "2026-09-10T06:28:23.975308+00:00",
   "transport": "JSON-RPC 2.0 over stdio; one message per line",
   "server_command": [
     "python",
