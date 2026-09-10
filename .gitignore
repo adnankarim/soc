@@ -9,7 +9,3 @@ __pycache__/
 dist/
 build/
 .DS_Store
-data/designs/*.bak.json
-artifacts/scenario_results.json
-artifacts/tools_manifest.json
-artifacts/pytest_stdout.txt

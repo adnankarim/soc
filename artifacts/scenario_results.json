@@ -1,0 +1,559 @@
+{
+  "generated_at": "2026-09-10T06:32:49.409646+00:00",
+  "design_path": "data/designs/orion_soc.json",
+  "design_sha256": "e9e29d29183af7bc8e00c9b76ecea314d428c1e16adc9f06170e59e59cf1bd8a",
+  "tools": [
+    {
+      "name": "list_components",
+      "description": "List components, optionally filtered by their exact kind.",
+      "mutates": false,
+      "arity": 0,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "description": "Optional exact component kind, for example 'router'."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "list_links",
+      "description": "List directed links, optionally filtered by exact source and/or destination id.",
+      "mutates": false,
+      "arity": 0,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "src": {
+            "type": "string",
+            "description": "Optional exact source id."
+          },
+          "dst": {
+            "type": "string",
+            "description": "Optional exact destination id."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_component",
+      "description": "Get one component, including all of its properties.",
+      "mutates": false,
+      "arity": 1,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "component_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "component_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_link",
+      "description": "Get one directed link, including its endpoints and properties.",
+      "mutates": false,
+      "arity": 1,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "link_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "link_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "search",
+      "description": "Search components and links with a case-insensitive smart or substring match.",
+      "mutates": false,
+      "arity": 1,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "all",
+              "components",
+              "links"
+            ],
+            "default": "all"
+          },
+          "match_mode": {
+            "type": "string",
+            "enum": [
+              "smart",
+              "substring"
+            ],
+            "default": "smart"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "validate_design",
+      "description": "Check link endpoints, self-loops, and MiniEda's bandwidth rules.",
+      "mutates": false,
+      "arity": 0,
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "update_property",
+      "description": "Update one dotted property path. Defaults to a non-persistent session update.",
+      "mutates": true,
+      "arity": 3,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "element_id": {
+            "type": "string"
+          },
+          "prop_path": {
+            "type": "string",
+            "description": "Dotted path below properties, for example 'qos' or 'limits.read'."
+          },
+          "value": {
+            "description": "Any finite JSON value to store at prop_path."
+          },
+          "persist": {
+            "type": "boolean",
+            "default": false,
+            "description": "Write to disk only when this service was explicitly allowed to persist."
+          },
+          "dry_run": {
+            "type": "boolean",
+            "default": false,
+            "description": "Return the proposed change without changing memory or disk."
+          }
+        },
+        "required": [
+          "element_id",
+          "prop_path",
+          "value"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "export_report",
+      "description": "Create a compact report containing inventory and validation findings.",
+      "mutates": false,
+      "arity": 0,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "format": {
+            "type": "string",
+            "enum": [
+              "text",
+              "json"
+            ],
+            "default": "text"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "S1_list_components",
+      "tool": "list_components",
+      "arguments": {},
+      "response": {
+        "ok": true,
+        "result": [
+          {
+            "id": "cpu0",
+            "kind": "initiator",
+            "name": "CPU0",
+            "properties": {
+              "clock_domain": "cd_cpu",
+              "data_width": 128,
+              "qos": "high",
+              "protocol": "AXI4"
+            }
+          },
+          {
+            "id": "dbg_probe",
+            "kind": "observer",
+            "name": "DebugProbe",
+            "properties": {
+              "protocol": "trace"
+            }
+          },
+          {
+            "id": "ddr0",
+            "kind": "target",
+            "name": "DDRController",
+            "properties": {
+              "clock_domain": "cd_ddr",
+              "channels": 2,
+              "protocol": "AXI4"
+            }
+          },
+          {
+            "id": "dma0",
+            "kind": "initiator",
+            "name": "DMA0",
+            "properties": {
+              "clock_domain": "cd_sys",
+              "data_width": 64,
+              "qos": "medium",
+              "protocol": "AXI4"
+            }
+          },
+          {
+            "id": "gpu0",
+            "kind": "initiator",
+            "name": "GPU0",
+            "properties": {
+              "clock_domain": "cd_gpu",
+              "data_width": 256,
+              "qos": "high",
+              "protocol": "AXI4"
+            }
+          },
+          {
+            "id": "periph0",
+            "kind": "target",
+            "name": "PeriphBridge",
+            "properties": {
+              "clock_domain": "cd_sys",
+              "protocol": "APB"
+            }
+          },
+          {
+            "id": "r0",
+            "kind": "router",
+            "name": "CentralRouter",
+            "properties": {
+              "clock_domain": "cd_noc",
+              "ports": 6,
+              "routing": "xy"
+            }
+          },
+          {
+            "id": "r1",
+            "kind": "router",
+            "name": "EdgeRouter",
+            "properties": {
+              "clock_domain": "cd_noc",
+              "ports": 4,
+              "routing": "xy"
+            }
+          },
+          {
+            "id": "sram0",
+            "kind": "target",
+            "name": "SRAM_L2",
+            "properties": {
+              "clock_domain": "cd_sys",
+              "size_kb": 2048,
+              "protocol": "AXI4"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "S2_get_cpu0",
+      "tool": "get_component",
+      "arguments": {
+        "component_id": "cpu0"
+      },
+      "response": {
+        "ok": true,
+        "result": {
+          "id": "cpu0",
+          "kind": "initiator",
+          "name": "CPU0",
+          "properties": {
+            "clock_domain": "cd_cpu",
+            "data_width": 128,
+            "qos": "high",
+            "protocol": "AXI4"
+          }
+        }
+      }
+    },
+    {
+      "id": "S3_get_missing",
+      "tool": "get_component",
+      "arguments": {
+        "component_id": "no_such_block"
+      },
+      "response": {
+        "ok": false,
+        "error": {
+          "type": "NotFoundError",
+          "code": "NOT_FOUND",
+          "message": "No component exists with id 'no_such_block'.",
+          "details": {
+            "element_type": "component",
+            "element_id": "no_such_block"
+          }
+        }
+      }
+    },
+    {
+      "id": "S4_validate",
+      "tool": "validate_design",
+      "arguments": {},
+      "response": {
+        "ok": true,
+        "result": {
+          "valid": false,
+          "summary": {
+            "issue_count": 2,
+            "error_count": 1,
+            "warning_count": 1
+          },
+          "issues": [
+            {
+              "code": "DANGLING_LINK_DESTINATION",
+              "severity": "error",
+              "element_id": "L7",
+              "message": "Link L7 references missing destination component 'sram_l2'.",
+              "details": {
+                "endpoint": "dst",
+                "component_id": "sram_l2"
+              }
+            },
+            {
+              "code": "SELF_LOOP",
+              "severity": "warning",
+              "element_id": "L_loop",
+              "message": "Link L_loop starts and ends at 'r0'; review whether this loop is intentional.",
+              "details": {
+                "component_id": "r0"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "S5_search_r0",
+      "tool": "search",
+      "arguments": {
+        "query": "r0"
+      },
+      "response": {
+        "ok": true,
+        "result": [
+          {
+            "type": "component",
+            "matched_fields": [
+              "id"
+            ],
+            "id": "r0",
+            "kind": "router",
+            "name": "CentralRouter",
+            "properties": {
+              "clock_domain": "cd_noc",
+              "ports": 6,
+              "routing": "xy"
+            }
+          },
+          {
+            "type": "link",
+            "matched_fields": [
+              "dst"
+            ],
+            "id": "L1",
+            "src": "cpu0",
+            "dst": "r0",
+            "properties": {
+              "bandwidth_mbps": 12800,
+              "latency_ns": 2,
+              "protocol": "AXI4"
+            }
+          },
+          {
+            "type": "link",
+            "matched_fields": [
+              "dst"
+            ],
+            "id": "L2",
+            "src": "gpu0",
+            "dst": "r0",
+            "properties": {
+              "bandwidth_mbps": 25600,
+              "latency_ns": 2,
+              "protocol": "AXI4"
+            }
+          },
+          {
+            "type": "link",
+            "matched_fields": [
+              "dst"
+            ],
+            "id": "L3",
+            "src": "dma0",
+            "dst": "r0",
+            "properties": {
+              "bandwidth_mbps": 128,
+              "latency_ns": 4,
+              "protocol": "AXI4"
+            }
+          },
+          {
+            "type": "link",
+            "matched_fields": [
+              "src"
+            ],
+            "id": "L4",
+            "src": "r0",
+            "dst": "r1",
+            "properties": {
+              "bandwidth_mbps": 19200,
+              "latency_ns": 3,
+              "protocol": "NoC"
+            }
+          },
+          {
+            "type": "link",
+            "matched_fields": [
+              "src"
+            ],
+            "id": "L5",
+            "src": "r0",
+            "dst": "ddr0",
+            "properties": {
+              "bandwidth_mbps": 16000,
+              "latency_ns": 20,
+              "protocol": "AXI4"
+            }
+          },
+          {
+            "type": "link",
+            "matched_fields": [
+              "dst"
+            ],
+            "id": "L8",
+            "src": "dbg_probe",
+            "dst": "r0",
+            "properties": {
+              "bandwidth_mbps": 100,
+              "latency_ns": 1,
+              "protocol": "trace"
+            }
+          },
+          {
+            "type": "link",
+            "matched_fields": [
+              "src",
+              "dst"
+            ],
+            "id": "L_loop",
+            "src": "r0",
+            "dst": "r0",
+            "properties": {
+              "bandwidth_mbps": 1000,
+              "latency_ns": 1,
+              "protocol": "NoC"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "S6_update_qos",
+      "tool": "update_property",
+      "arguments": {
+        "element_id": "cpu0",
+        "prop_path": "qos",
+        "value": "medium",
+        "persist": false
+      },
+      "response": {
+        "ok": true,
+        "result": {
+          "element_id": "cpu0",
+          "element_type": "component",
+          "property_path": "qos",
+          "property_existed": true,
+          "before": "high",
+          "after": "medium",
+          "changed": true,
+          "applied": true,
+          "persisted": false,
+          "mode": "session",
+          "session_revision": 1,
+          "file_sha256_before": "e9e29d29183af7bc8e00c9b76ecea314d428c1e16adc9f06170e59e59cf1bd8a",
+          "file_sha256_after": "e9e29d29183af7bc8e00c9b76ecea314d428c1e16adc9f06170e59e59cf1bd8a",
+          "element": {
+            "type": "component",
+            "id": "cpu0",
+            "kind": "initiator",
+            "name": "CPU0",
+            "properties": {
+              "clock_domain": "cd_cpu",
+              "data_width": 128,
+              "qos": "medium",
+              "protocol": "AXI4"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "S6b_reread_cpu0",
+      "tool": "get_component",
+      "arguments": {
+        "component_id": "cpu0"
+      },
+      "response": {
+        "ok": true,
+        "result": {
+          "id": "cpu0",
+          "kind": "initiator",
+          "name": "CPU0",
+          "properties": {
+            "clock_domain": "cd_cpu",
+            "data_width": 128,
+            "qos": "medium",
+            "protocol": "AXI4"
+          }
+        }
+      }
+    },
+    {
+      "id": "S7_report",
+      "tool": "export_report",
+      "arguments": {
+        "format": "text"
+      },
+      "response": {
+        "ok": true,
+        "result": "Design report: orion_soc (v0.3.1)\nFictional SoC design for the Arteris SoC Design Explorer MCP interview exercise.\nComponents: 9 (initiator=3, observer=1, router=2, target=3)\nLinks: 9 (8 with existing endpoints)\nValidation: 1 error(s), 1 warning(s).\nFindings:\n- ERROR DANGLING_LINK_DESTINATION (L7): Link L7 references missing destination component 'sram_l2'.\n- WARNING SELF_LOOP (L_loop): Link L_loop starts and ends at 'r0'; review whether this loop is intentional."
+      }
+    }
+  ]
+}

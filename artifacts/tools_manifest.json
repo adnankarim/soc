@@ -1,0 +1,181 @@
+{
+  "design_sha256": "e9e29d29183af7bc8e00c9b76ecea314d428c1e16adc9f06170e59e59cf1bd8a",
+  "tools": [
+    {
+      "name": "list_components",
+      "description": "List components, optionally filtered by their exact kind.",
+      "mutates": false,
+      "arity": 0,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "description": "Optional exact component kind, for example 'router'."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "list_links",
+      "description": "List directed links, optionally filtered by exact source and/or destination id.",
+      "mutates": false,
+      "arity": 0,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "src": {
+            "type": "string",
+            "description": "Optional exact source id."
+          },
+          "dst": {
+            "type": "string",
+            "description": "Optional exact destination id."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_component",
+      "description": "Get one component, including all of its properties.",
+      "mutates": false,
+      "arity": 1,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "component_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "component_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_link",
+      "description": "Get one directed link, including its endpoints and properties.",
+      "mutates": false,
+      "arity": 1,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "link_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "link_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "search",
+      "description": "Search components and links with a case-insensitive smart or substring match.",
+      "mutates": false,
+      "arity": 1,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "all",
+              "components",
+              "links"
+            ],
+            "default": "all"
+          },
+          "match_mode": {
+            "type": "string",
+            "enum": [
+              "smart",
+              "substring"
+            ],
+            "default": "smart"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "validate_design",
+      "description": "Check link endpoints, self-loops, and MiniEda's bandwidth rules.",
+      "mutates": false,
+      "arity": 0,
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "update_property",
+      "description": "Update one dotted property path. Defaults to a non-persistent session update.",
+      "mutates": true,
+      "arity": 3,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "element_id": {
+            "type": "string"
+          },
+          "prop_path": {
+            "type": "string",
+            "description": "Dotted path below properties, for example 'qos' or 'limits.read'."
+          },
+          "value": {
+            "description": "Any finite JSON value to store at prop_path."
+          },
+          "persist": {
+            "type": "boolean",
+            "default": false,
+            "description": "Write to disk only when this service was explicitly allowed to persist."
+          },
+          "dry_run": {
+            "type": "boolean",
+            "default": false,
+            "description": "Return the proposed change without changing memory or disk."
+          }
+        },
+        "required": [
+          "element_id",
+          "prop_path",
+          "value"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "export_report",
+      "description": "Create a compact report containing inventory and validation findings.",
+      "mutates": false,
+      "arity": 0,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "format": {
+            "type": "string",
+            "enum": [
+              "text",
+              "json"
+            ],
+            "default": "text"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  ]
+}

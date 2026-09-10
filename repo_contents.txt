@@ -1,0 +1,3933 @@
+# Repository Contents
+Generated from tracked text files; each section begins with its file path.
+
+
+================================================================================
+
+FILE: .env.example
+================================================================================
+
+# Copy to .env and fill if your agent demo uses a remote LLM.
+# Never commit real secrets.
+
+# OPENAI_API_KEY=
+# ANTHROPIC_API_KEY=
+# LLM_MODEL=
+
+
+================================================================================
+
+FILE: .gitignore
+================================================================================
+
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.env
+*.egg-info/
+dist/
+build/
+.DS_Store
+data/designs/*.bak.json
+artifacts/scenario_results.json
+artifacts/tools_manifest.json
+artifacts/pytest_stdout.txt
+
+
+================================================================================
+
+FILE: README.md
+================================================================================
+
+# Orion SoC Explorer MCP
+
+A lightweight Python implementation that exposes the Orion SoC design through an agent-friendly service and an MCP server.
+
+## Architecture
+
+```text
+Scenario Runner → ExplorerAdapter ─┐
+                                   ├→ ExplorerService → MiniEda → Orion JSON
+MCP Client → stdio MCP Server ─────┘
+```
+
+`ExplorerService` contains the shared business logic, so both the adapter and MCP server expose the same behavior.
+
+## Tools
+
+| Tool              | Purpose                          |
+| ----------------- | -------------------------------- |
+| `list_components` | List/filter SoC components       |
+| `list_links`      | List/filter links                |
+| `get_component`   | Get component by ID              |
+| `get_link`        | Get link by ID                   |
+| `search`          | Search components and links      |
+| `validate_design` | Detect design/graph issues       |
+| `update_property` | Safely update element properties |
+| `export_report`   | Generate text/JSON design report |
+
+All direct tool calls return a consistent envelope:
+
+```json
+{"ok": true, "result": {}}
+```
+
+or:
+
+```json
+{"ok": false, "error": {"type": "...", "code": "...", "message": "..."}}
+```
+
+## Validation
+
+The supplied Orion design intentionally contains two graph findings:
+
+* `L7`: dangling destination `sram_l2`
+* `L_loop`: self-loop `r0 → r0`
+
+The service detects both in addition to the existing `MiniEda` validation rules.
+
+## Search
+
+Smart search is the default.
+
+```json
+{"query": "r0"}
+```
+
+matches `r0` and its connected links without incorrectly matching `ddr0`.
+
+Use `"match_mode": "substring"` for broader substring matching.
+
+## Safe Updates
+
+`update_property` supports:
+
+| Mode             | Memory | Disk |
+| ---------------- | -----: | ---: |
+| `dry_run: true`  |     No |   No |
+| `persist: false` |    Yes |   No |
+| `persist: true`  |    Yes |  Yes |
+
+Persistent writes require explicit opt-in and are blocked for the canonical Orion JSON file.
+
+## MCP
+
+Run the MCP server:
+
+```bash
+python -u -m soc_explorer.mcp_server
+```
+
+Communication uses newline-delimited **JSON-RPC 2.0 over stdin/stdout**.
+
+Supported MCP operations:
+
+* `initialize`
+* `notifications/initialized`
+* `ping`
+* `tools/list`
+* `tools/call`
+
+## Tests
+
+Run:
+
+```bash
+python -m unittest discover -s tests -v
+python -m pytest -q
+python scripts/run_required_scenarios.py
+python examples/mcp_client_demo.py
+```
+
+The tests cover service behavior, validation, search, safe updates, persistence protection, JSON-RPC errors, and real stdio MCP tool discovery/calls.
+
+## Project Structure
+
+```text
+mini_eda/                     Existing design API
+soc_explorer/service.py       Shared tool/service logic
+soc_explorer/adapter.py       Scenario-runner adapter
+soc_explorer/mcp_server.py    MCP JSON-RPC stdio server
+examples/mcp_client_demo.py   End-to-end MCP client demo
+tests/                        Service and MCP tests
+artifacts/                    Generated test/demo evidence
+```
+
+## Key Design Principle
+
+`MiniEda` and the Orion JSON remain the source of truth. The explorer adds validation, safe mutation policies, consistent tool contracts, and MCP access without duplicating the underlying design model.
+
+
+================================================================================
+
+FILE: artifacts/NOTES.md
+================================================================================
+
+# Submission Notes
+
+* **Time spent (hours):** 3–4 hours
+
+* **AI assistants used:** ChatGPT / Codex
+
+* **What I designed myself vs AI-assisted:**
+  I used AI to understand the existing codebase and requirements and to generate parts of the implementation and tests. I manually reviewed and integrated the generated code, understood how the different parts worked together, ran and debugged the tests, and verified the required scenarios and MCP client/server communication end to end.
+
+* **Representative prompts / requests to the assistant:**
+
+  * Understand the existing codebase, important files, and assignment requirements before making changes.
+  * Map the requirements to the existing `MiniEda` API and suggest a simple implementation.
+  * Generate implementation and tests while keeping the original Orion design file safe.
+  * Explain the generated code and help verify the complete solution end to end.
+
+* **Surprises observed while running Orion:**
+  While working through the required scenarios, I confirmed several important behaviors in the supplied design: `L7` references the missing ID `sram_l2`, `L_loop` is a self-loop, basic substring search for `r0` can also match `ddr0`, and `persist: false` changes the live in-memory model without changing the JSON file.
+
+* **Known limits of my solution:**
+
+  * Mainly designed for local use.
+  * Performs basic SoC checks rather than advanced design analysis.
+  * Implements the MCP features required for this assignment rather than the complete MCP feature set.
+
+
+================================================================================
+
+FILE: artifacts/mcp_demo_transcript.json
+================================================================================
+
+{
+  "generated_at": "2026-09-10T06:32:49.497929+00:00",
+  "transport": "JSON-RPC 2.0 over stdio; one message per line",
+  "server_command": [
+    "python",
+    "-u",
+    "-m",
+    "soc_explorer.mcp_server",
+    "--design",
+    "<temporary-copy>"
+  ],
+  "canonical_design_sha256_before": "e9e29d29183af7bc8e00c9b76ecea314d428c1e16adc9f06170e59e59cf1bd8a",
+  "canonical_design_sha256_after": "e9e29d29183af7bc8e00c9b76ecea314d428c1e16adc9f06170e59e59cf1bd8a",
+  "temporary_design_sha256_before": "e9e29d29183af7bc8e00c9b76ecea314d428c1e16adc9f06170e59e59cf1bd8a",
+  "temporary_design_sha256_after": "e9e29d29183af7bc8e00c9b76ecea314d428c1e16adc9f06170e59e59cf1bd8a",
+  "server_stderr": "",
+  "exchanges": [
+    {
+      "id": 1,
+      "method": "initialize",
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+          "protocolVersion": "2025-06-18",
+          "capabilities": {},
+          "clientInfo": {
+            "name": "orion-demo-client",
+            "version": "1.0"
+          }
+        }
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+          "protocolVersion": "2025-06-18",
+          "capabilities": {
+            "tools": {
+              "listChanged": false
+            }
+          },
+          "serverInfo": {
+            "name": "orion-soc-explorer-easy",
+            "version": "1.0.0"
+          },
+          "instructions": "Explore the local Orion SoC. Start with validate_design; use persist=false (the default) for safe session-only edits."
+        }
+      }
+    },
+    {
+      "id": 2,
+      "method": "tools/list",
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "tools/list",
+        "params": {}
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "result": {
+          "tools": [
+            {
+              "name": "list_components",
+              "description": "List components, optionally filtered by their exact kind.",
+              "mutates": false,
+              "arity": 0,
+              "inputSchema": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "description": "Optional exact component kind, for example 'router'."
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            {
+              "name": "list_links",
+              "description": "List directed links, optionally filtered by exact source and/or destination id.",
+              "mutates": false,
+              "arity": 0,
+              "inputSchema": {
+                "type": "object",
+                "properties": {
+                  "src": {
+                    "type": "string",
+                    "description": "Optional exact source id."
+                  },
+                  "dst": {
+                    "type": "string",
+                    "description": "Optional exact destination id."
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            {
+              "name": "get_component",
+              "description": "Get one component, including all of its properties.",
+              "mutates": false,
+              "arity": 1,
+              "inputSchema": {
+                "type": "object",
+                "properties": {
+                  "component_id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "component_id"
+                ],
+                "additionalProperties": false
+              }
+            },
+            {
+              "name": "get_link",
+              "description": "Get one directed link, including its endpoints and properties.",
+              "mutates": false,
+              "arity": 1,
+              "inputSchema": {
+                "type": "object",
+                "properties": {
+                  "link_id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "link_id"
+                ],
+                "additionalProperties": false
+              }
+            },
+            {
+              "name": "search",
+              "description": "Search components and links with a case-insensitive smart or substring match.",
+              "mutates": false,
+              "arity": 1,
+              "inputSchema": {
+                "type": "object",
+                "properties": {
+                  "query": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "scope": {
+                    "type": "string",
+                    "enum": [
+                      "all",
+                      "components",
+                      "links"
+                    ],
+                    "default": "all"
+                  },
+                  "match_mode": {
+                    "type": "string",
+                    "enum": [
+                      "smart",
+                      "substring"
+                    ],
+                    "default": "smart"
+                  }
+                },
+                "required": [
+                  "query"
+                ],
+                "additionalProperties": false
+              }
+            },
+            {
+              "name": "validate_design",
+              "description": "Check link endpoints, self-loops, and MiniEda's bandwidth rules.",
+              "mutates": false,
+              "arity": 0,
+              "inputSchema": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": false
+              }
+            },
+            {
+              "name": "update_property",
+              "description": "Update one dotted property path. Defaults to a non-persistent session update.",
+              "mutates": true,
+              "arity": 3,
+              "inputSchema": {
+                "type": "object",
+                "properties": {
+                  "element_id": {
+                    "type": "string"
+                  },
+                  "prop_path": {
+                    "type": "string",
+                    "description": "Dotted path below properties, for example 'qos' or 'limits.read'."
+                  },
+                  "value": {
+                    "description": "Any finite JSON value to store at prop_path."
+                  },
+                  "persist": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Write to disk only when this service was explicitly allowed to persist."
+                  },
+                  "dry_run": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Return the proposed change without changing memory or disk."
+                  }
+                },
+                "required": [
+                  "element_id",
+                  "prop_path",
+                  "value"
+                ],
+                "additionalProperties": false
+              }
+            },
+            {
+              "name": "export_report",
+              "description": "Create a compact report containing inventory and validation findings.",
+              "mutates": false,
+              "arity": 0,
+              "inputSchema": {
+                "type": "object",
+                "properties": {
+                  "format": {
+                    "type": "string",
+                    "enum": [
+                      "text",
+                      "json"
+                    ],
+                    "default": "text"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": 3,
+      "method": "tools/call",
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "method": "tools/call",
+        "params": {
+          "name": "list_components",
+          "arguments": {}
+        }
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "[{\"id\": \"cpu0\", \"kind\": \"initiator\", \"name\": \"CPU0\", \"properties\": {\"clock_domain\": \"cd_cpu\", \"data_width\": 128, \"protocol\": \"AXI4\", \"qos\": \"high\"}}, {\"id\": \"dbg_probe\", \"kind\": \"observer\", \"name\": \"DebugProbe\", \"properties\": {\"protocol\": \"trace\"}}, {\"id\": \"ddr0\", \"kind\": \"target\", \"name\": \"DDRController\", \"properties\": {\"channels\": 2, \"clock_domain\": \"cd_ddr\", \"protocol\": \"AXI4\"}}, {\"id\": \"dma0\", \"kind\": \"initiator\", \"name\": \"DMA0\", \"properties\": {\"clock_domain\": \"cd_sys\", \"data_width\": 64, \"protocol\": \"AXI4\", \"qos\": \"medium\"}}, {\"id\": \"gpu0\", \"kind\": \"initiator\", \"name\": \"GPU0\", \"properties\": {\"clock_domain\": \"cd_gpu\", \"data_width\": 256, \"protocol\": \"AXI4\", \"qos\": \"high\"}}, {\"id\": \"periph0\", \"kind\": \"target\", \"name\": \"PeriphBridge\", \"properties\": {\"clock_domain\": \"cd_sys\", \"protocol\": \"APB\"}}, {\"id\": \"r0\", \"kind\": \"router\", \"name\": \"CentralRouter\", \"properties\": {\"clock_domain\": \"cd_noc\", \"ports\": 6, \"routing\": \"xy\"}}, {\"id\": \"r1\", \"kind\": \"router\", \"name\": \"EdgeRouter\", \"properties\": {\"clock_domain\": \"cd_noc\", \"ports\": 4, \"routing\": \"xy\"}}, {\"id\": \"sram0\", \"kind\": \"target\", \"name\": \"SRAM_L2\", \"properties\": {\"clock_domain\": \"cd_sys\", \"protocol\": \"AXI4\", \"size_kb\": 2048}}]"
+            }
+          ],
+          "structuredContent": {
+            "result": [
+              {
+                "id": "cpu0",
+                "kind": "initiator",
+                "name": "CPU0",
+                "properties": {
+                  "clock_domain": "cd_cpu",
+                  "data_width": 128,
+                  "qos": "high",
+                  "protocol": "AXI4"
+                }
+              },
+              {
+                "id": "dbg_probe",
+                "kind": "observer",
+                "name": "DebugProbe",
+                "properties": {
+                  "protocol": "trace"
+                }
+              },
+              {
+                "id": "ddr0",
+                "kind": "target",
+                "name": "DDRController",
+                "properties": {
+                  "clock_domain": "cd_ddr",
+                  "channels": 2,
+                  "protocol": "AXI4"
+                }
+              },
+              {
+                "id": "dma0",
+                "kind": "initiator",
+                "name": "DMA0",
+                "properties": {
+                  "clock_domain": "cd_sys",
+                  "data_width": 64,
+                  "qos": "medium",
+                  "protocol": "AXI4"
+                }
+              },
+              {
+                "id": "gpu0",
+                "kind": "initiator",
+                "name": "GPU0",
+                "properties": {
+                  "clock_domain": "cd_gpu",
+                  "data_width": 256,
+                  "qos": "high",
+                  "protocol": "AXI4"
+                }
+              },
+              {
+                "id": "periph0",
+                "kind": "target",
+                "name": "PeriphBridge",
+                "properties": {
+                  "clock_domain": "cd_sys",
+                  "protocol": "APB"
+                }
+              },
+              {
+                "id": "r0",
+                "kind": "router",
+                "name": "CentralRouter",
+                "properties": {
+                  "clock_domain": "cd_noc",
+                  "ports": 6,
+                  "routing": "xy"
+                }
+              },
+              {
+                "id": "r1",
+                "kind": "router",
+                "name": "EdgeRouter",
+                "properties": {
+                  "clock_domain": "cd_noc",
+                  "ports": 4,
+                  "routing": "xy"
+                }
+              },
+              {
+                "id": "sram0",
+                "kind": "target",
+                "name": "SRAM_L2",
+                "properties": {
+                  "clock_domain": "cd_sys",
+                  "size_kb": 2048,
+                  "protocol": "AXI4"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "decoded_tool_result": [
+        {
+          "id": "cpu0",
+          "kind": "initiator",
+          "name": "CPU0",
+          "properties": {
+            "clock_domain": "cd_cpu",
+            "data_width": 128,
+            "protocol": "AXI4",
+            "qos": "high"
+          }
+        },
+        {
+          "id": "dbg_probe",
+          "kind": "observer",
+          "name": "DebugProbe",
+          "properties": {
+            "protocol": "trace"
+          }
+        },
+        {
+          "id": "ddr0",
+          "kind": "target",
+          "name": "DDRController",
+          "properties": {
+            "channels": 2,
+            "clock_domain": "cd_ddr",
+            "protocol": "AXI4"
+          }
+        },
+        {
+          "id": "dma0",
+          "kind": "initiator",
+          "name": "DMA0",
+          "properties": {
+            "clock_domain": "cd_sys",
+            "data_width": 64,
+            "protocol": "AXI4",
+            "qos": "medium"
+          }
+        },
+        {
+          "id": "gpu0",
+          "kind": "initiator",
+          "name": "GPU0",
+          "properties": {
+            "clock_domain": "cd_gpu",
+            "data_width": 256,
+            "protocol": "AXI4",
+            "qos": "high"
+          }
+        },
+        {
+          "id": "periph0",
+          "kind": "target",
+          "name": "PeriphBridge",
+          "properties": {
+            "clock_domain": "cd_sys",
+            "protocol": "APB"
+          }
+        },
+        {
+          "id": "r0",
+          "kind": "router",
+          "name": "CentralRouter",
+          "properties": {
+            "clock_domain": "cd_noc",
+            "ports": 6,
+            "routing": "xy"
+          }
+        },
+        {
+          "id": "r1",
+          "kind": "router",
+          "name": "EdgeRouter",
+          "properties": {
+            "clock_domain": "cd_noc",
+            "ports": 4,
+            "routing": "xy"
+          }
+        },
+        {
+          "id": "sram0",
+          "kind": "target",
+          "name": "SRAM_L2",
+          "properties": {
+            "clock_domain": "cd_sys",
+            "protocol": "AXI4",
+            "size_kb": 2048
+          }
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "method": "tools/call",
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "method": "tools/call",
+        "params": {
+          "name": "search",
+          "arguments": {
+            "query": "r0"
+          }
+        }
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "[{\"id\": \"r0\", \"kind\": \"router\", \"matched_fields\": [\"id\"], \"name\": \"CentralRouter\", \"properties\": {\"clock_domain\": \"cd_noc\", \"ports\": 6, \"routing\": \"xy\"}, \"type\": \"component\"}, {\"dst\": \"r0\", \"id\": \"L1\", \"matched_fields\": [\"dst\"], \"properties\": {\"bandwidth_mbps\": 12800, \"latency_ns\": 2, \"protocol\": \"AXI4\"}, \"src\": \"cpu0\", \"type\": \"link\"}, {\"dst\": \"r0\", \"id\": \"L2\", \"matched_fields\": [\"dst\"], \"properties\": {\"bandwidth_mbps\": 25600, \"latency_ns\": 2, \"protocol\": \"AXI4\"}, \"src\": \"gpu0\", \"type\": \"link\"}, {\"dst\": \"r0\", \"id\": \"L3\", \"matched_fields\": [\"dst\"], \"properties\": {\"bandwidth_mbps\": 128, \"latency_ns\": 4, \"protocol\": \"AXI4\"}, \"src\": \"dma0\", \"type\": \"link\"}, {\"dst\": \"r1\", \"id\": \"L4\", \"matched_fields\": [\"src\"], \"properties\": {\"bandwidth_mbps\": 19200, \"latency_ns\": 3, \"protocol\": \"NoC\"}, \"src\": \"r0\", \"type\": \"link\"}, {\"dst\": \"ddr0\", \"id\": \"L5\", \"matched_fields\": [\"src\"], \"properties\": {\"bandwidth_mbps\": 16000, \"latency_ns\": 20, \"protocol\": \"AXI4\"}, \"src\": \"r0\", \"type\": \"link\"}, {\"dst\": \"r0\", \"id\": \"L8\", \"matched_fields\": [\"dst\"], \"properties\": {\"bandwidth_mbps\": 100, \"latency_ns\": 1, \"protocol\": \"trace\"}, \"src\": \"dbg_probe\", \"type\": \"link\"}, {\"dst\": \"r0\", \"id\": \"L_loop\", \"matched_fields\": [\"src\", \"dst\"], \"properties\": {\"bandwidth_mbps\": 1000, \"latency_ns\": 1, \"protocol\": \"NoC\"}, \"src\": \"r0\", \"type\": \"link\"}]"
+            }
+          ],
+          "structuredContent": {
+            "result": [
+              {
+                "type": "component",
+                "matched_fields": [
+                  "id"
+                ],
+                "id": "r0",
+                "kind": "router",
+                "name": "CentralRouter",
+                "properties": {
+                  "clock_domain": "cd_noc",
+                  "ports": 6,
+                  "routing": "xy"
+                }
+              },
+              {
+                "type": "link",
+                "matched_fields": [
+                  "dst"
+                ],
+                "id": "L1",
+                "src": "cpu0",
+                "dst": "r0",
+                "properties": {
+                  "bandwidth_mbps": 12800,
+                  "latency_ns": 2,
+                  "protocol": "AXI4"
+                }
+              },
+              {
+                "type": "link",
+                "matched_fields": [
+                  "dst"
+                ],
+                "id": "L2",
+                "src": "gpu0",
+                "dst": "r0",
+                "properties": {
+                  "bandwidth_mbps": 25600,
+                  "latency_ns": 2,
+                  "protocol": "AXI4"
+                }
+              },
+              {
+                "type": "link",
+                "matched_fields": [
+                  "dst"
+                ],
+                "id": "L3",
+                "src": "dma0",
+                "dst": "r0",
+                "properties": {
+                  "bandwidth_mbps": 128,
+                  "latency_ns": 4,
+                  "protocol": "AXI4"
+                }
+              },
+              {
+                "type": "link",
+                "matched_fields": [
+                  "src"
+                ],
+                "id": "L4",
+                "src": "r0",
+                "dst": "r1",
+                "properties": {
+                  "bandwidth_mbps": 19200,
+                  "latency_ns": 3,
+                  "protocol": "NoC"
+                }
+              },
+              {
+                "type": "link",
+                "matched_fields": [
+                  "src"
+                ],
+                "id": "L5",
+                "src": "r0",
+                "dst": "ddr0",
+                "properties": {
+                  "bandwidth_mbps": 16000,
+                  "latency_ns": 20,
+                  "protocol": "AXI4"
+                }
+              },
+              {
+                "type": "link",
+                "matched_fields": [
+                  "dst"
+                ],
+                "id": "L8",
+                "src": "dbg_probe",
+                "dst": "r0",
+                "properties": {
+                  "bandwidth_mbps": 100,
+                  "latency_ns": 1,
+                  "protocol": "trace"
+                }
+              },
+              {
+                "type": "link",
+                "matched_fields": [
+                  "src",
+                  "dst"
+                ],
+                "id": "L_loop",
+                "src": "r0",
+                "dst": "r0",
+                "properties": {
+                  "bandwidth_mbps": 1000,
+                  "latency_ns": 1,
+                  "protocol": "NoC"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "decoded_tool_result": [
+        {
+          "id": "r0",
+          "kind": "router",
+          "matched_fields": [
+            "id"
+          ],
+          "name": "CentralRouter",
+          "properties": {
+            "clock_domain": "cd_noc",
+            "ports": 6,
+            "routing": "xy"
+          },
+          "type": "component"
+        },
+        {
+          "dst": "r0",
+          "id": "L1",
+          "matched_fields": [
+            "dst"
+          ],
+          "properties": {
+            "bandwidth_mbps": 12800,
+            "latency_ns": 2,
+            "protocol": "AXI4"
+          },
+          "src": "cpu0",
+          "type": "link"
+        },
+        {
+          "dst": "r0",
+          "id": "L2",
+          "matched_fields": [
+            "dst"
+          ],
+          "properties": {
+            "bandwidth_mbps": 25600,
+            "latency_ns": 2,
+            "protocol": "AXI4"
+          },
+          "src": "gpu0",
+          "type": "link"
+        },
+        {
+          "dst": "r0",
+          "id": "L3",
+          "matched_fields": [
+            "dst"
+          ],
+          "properties": {
+            "bandwidth_mbps": 128,
+            "latency_ns": 4,
+            "protocol": "AXI4"
+          },
+          "src": "dma0",
+          "type": "link"
+        },
+        {
+          "dst": "r1",
+          "id": "L4",
+          "matched_fields": [
+            "src"
+          ],
+          "properties": {
+            "bandwidth_mbps": 19200,
+            "latency_ns": 3,
+            "protocol": "NoC"
+          },
+          "src": "r0",
+          "type": "link"
+        },
+        {
+          "dst": "ddr0",
+          "id": "L5",
+          "matched_fields": [
+            "src"
+          ],
+          "properties": {
+            "bandwidth_mbps": 16000,
+            "latency_ns": 20,
+            "protocol": "AXI4"
+          },
+          "src": "r0",
+          "type": "link"
+        },
+        {
+          "dst": "r0",
+          "id": "L8",
+          "matched_fields": [
+            "dst"
+          ],
+          "properties": {
+            "bandwidth_mbps": 100,
+            "latency_ns": 1,
+            "protocol": "trace"
+          },
+          "src": "dbg_probe",
+          "type": "link"
+        },
+        {
+          "dst": "r0",
+          "id": "L_loop",
+          "matched_fields": [
+            "src",
+            "dst"
+          ],
+          "properties": {
+            "bandwidth_mbps": 1000,
+            "latency_ns": 1,
+            "protocol": "NoC"
+          },
+          "src": "r0",
+          "type": "link"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "method": "tools/call",
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 5,
+        "method": "tools/call",
+        "params": {
+          "name": "validate_design",
+          "arguments": {}
+        }
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 5,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"issues\": [{\"code\": \"DANGLING_LINK_DESTINATION\", \"details\": {\"component_id\": \"sram_l2\", \"endpoint\": \"dst\"}, \"element_id\": \"L7\", \"message\": \"Link L7 references missing destination component 'sram_l2'.\", \"severity\": \"error\"}, {\"code\": \"SELF_LOOP\", \"details\": {\"component_id\": \"r0\"}, \"element_id\": \"L_loop\", \"message\": \"Link L_loop starts and ends at 'r0'; review whether this loop is intentional.\", \"severity\": \"warning\"}], \"summary\": {\"error_count\": 1, \"issue_count\": 2, \"warning_count\": 1}, \"valid\": false}"
+            }
+          ],
+          "structuredContent": {
+            "result": {
+              "valid": false,
+              "summary": {
+                "issue_count": 2,
+                "error_count": 1,
+                "warning_count": 1
+              },
+              "issues": [
+                {
+                  "code": "DANGLING_LINK_DESTINATION",
+                  "severity": "error",
+                  "element_id": "L7",
+                  "message": "Link L7 references missing destination component 'sram_l2'.",
+                  "details": {
+                    "endpoint": "dst",
+                    "component_id": "sram_l2"
+                  }
+                },
+                {
+                  "code": "SELF_LOOP",
+                  "severity": "warning",
+                  "element_id": "L_loop",
+                  "message": "Link L_loop starts and ends at 'r0'; review whether this loop is intentional.",
+                  "details": {
+                    "component_id": "r0"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "decoded_tool_result": {
+        "issues": [
+          {
+            "code": "DANGLING_LINK_DESTINATION",
+            "details": {
+              "component_id": "sram_l2",
+              "endpoint": "dst"
+            },
+            "element_id": "L7",
+            "message": "Link L7 references missing destination component 'sram_l2'.",
+            "severity": "error"
+          },
+          {
+            "code": "SELF_LOOP",
+            "details": {
+              "component_id": "r0"
+            },
+            "element_id": "L_loop",
+            "message": "Link L_loop starts and ends at 'r0'; review whether this loop is intentional.",
+            "severity": "warning"
+          }
+        ],
+        "summary": {
+          "error_count": 1,
+          "issue_count": 2,
+          "warning_count": 1
+        },
+        "valid": false
+      }
+    },
+    {
+      "id": 6,
+      "method": "tools/call",
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 6,
+        "method": "tools/call",
+        "params": {
+          "name": "update_property",
+          "arguments": {
+            "element_id": "cpu0",
+            "prop_path": "qos",
+            "value": "medium",
+            "persist": false
+          }
+        }
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 6,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"after\": \"medium\", \"applied\": true, \"before\": \"high\", \"changed\": true, \"element\": {\"id\": \"cpu0\", \"kind\": \"initiator\", \"name\": \"CPU0\", \"properties\": {\"clock_domain\": \"cd_cpu\", \"data_width\": 128, \"protocol\": \"AXI4\", \"qos\": \"medium\"}, \"type\": \"component\"}, \"element_id\": \"cpu0\", \"element_type\": \"component\", \"file_sha256_after\": \"e9e29d29183af7bc8e00c9b76ecea314d428c1e16adc9f06170e59e59cf1bd8a\", \"file_sha256_before\": \"e9e29d29183af7bc8e00c9b76ecea314d428c1e16adc9f06170e59e59cf1bd8a\", \"mode\": \"session\", \"persisted\": false, \"property_existed\": true, \"property_path\": \"qos\", \"session_revision\": 1}"
+            }
+          ],
+          "structuredContent": {
+            "result": {
+              "element_id": "cpu0",
+              "element_type": "component",
+              "property_path": "qos",
+              "property_existed": true,
+              "before": "high",
+              "after": "medium",
+              "changed": true,
+              "applied": true,
+              "persisted": false,
+              "mode": "session",
+              "session_revision": 1,
+              "file_sha256_before": "e9e29d29183af7bc8e00c9b76ecea314d428c1e16adc9f06170e59e59cf1bd8a",
+              "file_sha256_after": "e9e29d29183af7bc8e00c9b76ecea314d428c1e16adc9f06170e59e59cf1bd8a",
+              "element": {
+                "type": "component",
+                "id": "cpu0",
+                "kind": "initiator",
+                "name": "CPU0",
+                "properties": {
+                  "clock_domain": "cd_cpu",
+                  "data_width": 128,
+                  "qos": "medium",
+                  "protocol": "AXI4"
+                }
+              }
+            }
+          }
+        }
+      },
+      "decoded_tool_result": {
+        "after": "medium",
+        "applied": true,
+        "before": "high",
+        "changed": true,
+        "element": {
+          "id": "cpu0",
+          "kind": "initiator",
+          "name": "CPU0",
+          "properties": {
+            "clock_domain": "cd_cpu",
+            "data_width": 128,
+            "protocol": "AXI4",
+            "qos": "medium"
+          },
+          "type": "component"
+        },
+        "element_id": "cpu0",
+        "element_type": "component",
+        "file_sha256_after": "e9e29d29183af7bc8e00c9b76ecea314d428c1e16adc9f06170e59e59cf1bd8a",
+        "file_sha256_before": "e9e29d29183af7bc8e00c9b76ecea314d428c1e16adc9f06170e59e59cf1bd8a",
+        "mode": "session",
+        "persisted": false,
+        "property_existed": true,
+        "property_path": "qos",
+        "session_revision": 1
+      }
+    },
+    {
+      "id": 7,
+      "method": "tools/call",
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 7,
+        "method": "tools/call",
+        "params": {
+          "name": "get_component",
+          "arguments": {
+            "component_id": "cpu0"
+          }
+        }
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 7,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"id\": \"cpu0\", \"kind\": \"initiator\", \"name\": \"CPU0\", \"properties\": {\"clock_domain\": \"cd_cpu\", \"data_width\": 128, \"protocol\": \"AXI4\", \"qos\": \"medium\"}}"
+            }
+          ],
+          "structuredContent": {
+            "result": {
+              "id": "cpu0",
+              "kind": "initiator",
+              "name": "CPU0",
+              "properties": {
+                "clock_domain": "cd_cpu",
+                "data_width": 128,
+                "qos": "medium",
+                "protocol": "AXI4"
+              }
+            }
+          }
+        }
+      },
+      "decoded_tool_result": {
+        "id": "cpu0",
+        "kind": "initiator",
+        "name": "CPU0",
+        "properties": {
+          "clock_domain": "cd_cpu",
+          "data_width": 128,
+          "protocol": "AXI4",
+          "qos": "medium"
+        }
+      }
+    },
+    {
+      "id": 8,
+      "method": "tools/call",
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 8,
+        "method": "tools/call",
+        "params": {
+          "name": "export_report",
+          "arguments": {
+            "format": "text"
+          }
+        }
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 8,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "\"Design report: orion_soc (v0.3.1)\\nFictional SoC design for the Arteris SoC Design Explorer MCP interview exercise.\\nComponents: 9 (initiator=3, observer=1, router=2, target=3)\\nLinks: 9 (8 with existing endpoints)\\nValidation: 1 error(s), 1 warning(s).\\nFindings:\\n- ERROR DANGLING_LINK_DESTINATION (L7): Link L7 references missing destination component 'sram_l2'.\\n- WARNING SELF_LOOP (L_loop): Link L_loop starts and ends at 'r0'; review whether this loop is intentional.\""
+            }
+          ],
+          "structuredContent": {
+            "result": "Design report: orion_soc (v0.3.1)\nFictional SoC design for the Arteris SoC Design Explorer MCP interview exercise.\nComponents: 9 (initiator=3, observer=1, router=2, target=3)\nLinks: 9 (8 with existing endpoints)\nValidation: 1 error(s), 1 warning(s).\nFindings:\n- ERROR DANGLING_LINK_DESTINATION (L7): Link L7 references missing destination component 'sram_l2'.\n- WARNING SELF_LOOP (L_loop): Link L_loop starts and ends at 'r0'; review whether this loop is intentional."
+          }
+        }
+      },
+      "decoded_tool_result": "Design report: orion_soc (v0.3.1)\nFictional SoC design for the Arteris SoC Design Explorer MCP interview exercise.\nComponents: 9 (initiator=3, observer=1, router=2, target=3)\nLinks: 9 (8 with existing endpoints)\nValidation: 1 error(s), 1 warning(s).\nFindings:\n- ERROR DANGLING_LINK_DESTINATION (L7): Link L7 references missing destination component 'sram_l2'.\n- WARNING SELF_LOOP (L_loop): Link L_loop starts and ends at 'r0'; review whether this loop is intentional."
+    }
+  ],
+  "observations": [
+    "tools/list exposed the explorer catalog over MCP.",
+    "validate_design reported L7's dangling destination and L_loop's self-loop.",
+    "update_property with persist=false changed cpu0.qos for the later get_component call only.",
+    "The canonical JSON fingerprint was unchanged by the demo."
+  ]
+}
+
+
+================================================================================
+
+FILE: artifacts/unittest_stdout.txt
+================================================================================
+
+test_adapter_uses_the_same_service_contract (test_explorer_service.ExplorerServiceTests.test_adapter_uses_the_same_service_contract) ... ok
+test_catalog_covers_all_required_element_operations (test_explorer_service.ExplorerServiceTests.test_catalog_covers_all_required_element_operations) ... ok
+test_dry_run_changes_nothing_and_session_update_is_visible_only_in_memory (test_explorer_service.ExplorerServiceTests.test_dry_run_changes_nothing_and_session_update_is_visible_only_in_memory) ... ok
+test_graph_validation_finds_the_two_intentional_orion_issues (test_explorer_service.ExplorerServiceTests.test_graph_validation_finds_the_two_intentional_orion_issues) ... ok
+test_list_and_get_are_sorted_and_json_safe (test_explorer_service.ExplorerServiceTests.test_list_and_get_are_sorted_and_json_safe) ... ok
+test_missing_and_invalid_input_have_stable_errors (test_explorer_service.ExplorerServiceTests.test_missing_and_invalid_input_have_stable_errors) ... ok
+test_persistent_write_requires_opt_in_and_then_survives_reload (test_explorer_service.ExplorerServiceTests.test_persistent_write_requires_opt_in_and_then_survives_reload) ... ok
+test_report_is_readable_and_mentions_the_design (test_explorer_service.ExplorerServiceTests.test_report_is_readable_and_mentions_the_design) ... ok
+test_service_constructor_protects_the_canonical_fixture_too (test_explorer_service.ExplorerServiceTests.test_service_constructor_protects_the_canonical_fixture_too) ... ok
+test_smart_search_avoids_a_substring_false_positive (test_explorer_service.ExplorerServiceTests.test_smart_search_avoids_a_substring_false_positive) ... ok
+test_in_process_protocol_errors_are_json_rpc_errors (test_mcp_server.McpServerTests.test_in_process_protocol_errors_are_json_rpc_errors) ... ok
+test_server_refuses_to_enable_persistence_for_canonical_file (test_mcp_server.McpServerTests.test_server_refuses_to_enable_persistence_for_canonical_file) ... ok
+test_stdio_server_discovers_and_calls_tools (test_mcp_server.McpServerTests.test_stdio_server_discovers_and_calls_tools) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 0.105s
+
+OK
+
+
+================================================================================
+
+FILE: data/designs/orion_soc.json
+================================================================================
+
+{
+  "name": "orion_soc",
+  "version": "0.3.1",
+  "description": "Fictional SoC design for the Arteris SoC Design Explorer MCP interview exercise.",
+  "components": [
+    {
+      "id": "cpu0",
+      "kind": "initiator",
+      "name": "CPU0",
+      "properties": {
+        "clock_domain": "cd_cpu",
+        "data_width": 128,
+        "qos": "high",
+        "protocol": "AXI4"
+      }
+    },
+    {
+      "id": "gpu0",
+      "kind": "initiator",
+      "name": "GPU0",
+      "properties": {
+        "clock_domain": "cd_gpu",
+        "data_width": 256,
+        "qos": "high",
+        "protocol": "AXI4"
+      }
+    },
+    {
+      "id": "dma0",
+      "kind": "initiator",
+      "name": "DMA0",
+      "properties": {
+        "clock_domain": "cd_sys",
+        "data_width": 64,
+        "qos": "medium",
+        "protocol": "AXI4"
+      }
+    },
+    {
+      "id": "r0",
+      "kind": "router",
+      "name": "CentralRouter",
+      "properties": {
+        "clock_domain": "cd_noc",
+        "ports": 6,
+        "routing": "xy"
+      }
+    },
+    {
+      "id": "r1",
+      "kind": "router",
+      "name": "EdgeRouter",
+      "properties": {
+        "clock_domain": "cd_noc",
+        "ports": 4,
+        "routing": "xy"
+      }
+    },
+    {
+      "id": "sram0",
+      "kind": "target",
+      "name": "SRAM_L2",
+      "properties": {
+        "clock_domain": "cd_sys",
+        "size_kb": 2048,
+        "protocol": "AXI4"
+      }
+    },
+    {
+      "id": "ddr0",
+      "kind": "target",
+      "name": "DDRController",
+      "properties": {
+        "clock_domain": "cd_ddr",
+        "channels": 2,
+        "protocol": "AXI4"
+      }
+    },
+    {
+      "id": "periph0",
+      "kind": "target",
+      "name": "PeriphBridge",
+      "properties": {
+        "clock_domain": "cd_sys",
+        "protocol": "APB"
+      }
+    },
+    {
+      "id": "dbg_probe",
+      "kind": "observer",
+      "name": "DebugProbe",
+      "properties": {
+        "protocol": "trace"
+      }
+    }
+  ],
+  "links": [
+    {
+      "id": "L1",
+      "src": "cpu0",
+      "dst": "r0",
+      "properties": {
+        "bandwidth_mbps": 12800,
+        "latency_ns": 2,
+        "protocol": "AXI4"
+      }
+    },
+    {
+      "id": "L2",
+      "src": "gpu0",
+      "dst": "r0",
+      "properties": {
+        "bandwidth_mbps": 25600,
+        "latency_ns": 2,
+        "protocol": "AXI4"
+      }
+    },
+    {
+      "id": "L3",
+      "src": "dma0",
+      "dst": "r0",
+      "properties": {
+        "bandwidth_mbps": 128,
+        "latency_ns": 4,
+        "protocol": "AXI4"
+      }
+    },
+    {
+      "id": "L4",
+      "src": "r0",
+      "dst": "r1",
+      "properties": {
+        "bandwidth_mbps": 19200,
+        "latency_ns": 3,
+        "protocol": "NoC"
+      }
+    },
+    {
+      "id": "L5",
+      "src": "r0",
+      "dst": "ddr0",
+      "properties": {
+        "bandwidth_mbps": 16000,
+        "latency_ns": 20,
+        "protocol": "AXI4"
+      }
+    },
+    {
+      "id": "L6",
+      "src": "r1",
+      "dst": "periph0",
+      "properties": {
+        "bandwidth_mbps": 800,
+        "latency_ns": 8,
+        "protocol": "APB"
+      }
+    },
+    {
+      "id": "L7",
+      "src": "r1",
+      "dst": "sram_l2",
+      "properties": {
+        "bandwidth_mbps": 9600,
+        "latency_ns": 5,
+        "protocol": "AXI4"
+      }
+    },
+    {
+      "id": "L_loop",
+      "src": "r0",
+      "dst": "r0",
+      "properties": {
+        "bandwidth_mbps": 1000,
+        "latency_ns": 1,
+        "protocol": "NoC"
+      }
+    },
+    {
+      "id": "L8",
+      "src": "dbg_probe",
+      "dst": "r0",
+      "properties": {
+        "bandwidth_mbps": 100,
+        "latency_ns": 1,
+        "protocol": "trace"
+      }
+    }
+  ],
+  "notes": [
+    "Orion is a teaching design. Some fields may be incomplete.",
+    "Bandwidth values are stored in properties.bandwidth_mbps.",
+    "Display names are not necessarily equal to ids."
+  ]
+}
+
+
+================================================================================
+
+FILE: docs/REQUIRED_SCENARIOS.md
+================================================================================
+
+# Required scenarios (candidate-facing)
+
+These scenarios are executed by `scripts/run_required_scenarios.py` against
+**your** adapter (`soc_explorer.adapter:get_adapter` by default).
+
+You must ship the generated `artifacts/scenario_results.json`.
+
+| ID | Intent | What reviewers check (high level) |
+|----|--------|-----------------------------------|
+| S1 | List components | `ok`, non-empty list, stable ids |
+| S2 | Get `cpu0` | `ok`, component id/kind consistent with design |
+| S3 | Get missing id | `ok: false` with a clear error payload (not a crash) |
+| S4 | Validate design | Returns a structured list/object (content is your responsibility) |
+| S5 | Search `r0` | Returns structured hits (inspect carefully — search quality matters) |
+| S6 / S6b | Update + re-read | Mutation path works; read-back reflects change when applicable |
+| S7 | Report | Human/agent-readable summary mentioning the design |
+
+## Rules
+
+1. Wire the adapter to **the same logic** your MCP tools use.
+2. Do not manually invent `scenario_results.json` — regenerate it.
+3. Prefer `persist: false` for S6 if you support dry-run / non-persistent updates, so you do not dirty the shared fixture. If you only support persistent updates, document restore steps in `NOTES.md`.
+4. In `NOTES.md`, write observations you made **by running** the design (unexpected validation results, odd search hits, missing fields, etc.).
+
+## Optional but valued
+
+- Extra scenarios in your own tests (path finding, dry-run diff, referential checks…).
+- Error **codes** stable enough for an agent to branch on.
+
+
+================================================================================
+
+FILE: docs/domain_glossary.md
+================================================================================
+
+# Domain glossary (short)
+
+| Term | Meaning in this exercise |
+|------|---------------------------|
+| **SoC** | System on Chip — the overall design under exploration |
+| **Component** | A block in the design (CPU, memory, router, peripheral, …) |
+| **Initiator** | Master that starts transactions (CPU, GPU, DMA…) |
+| **Target** | Endpoint that responds (SRAM, DDR, peripherals…) |
+| **Router / interconnect node** | Forwards traffic between components |
+| **Link** | Directed connection from `src` to `dst` with properties |
+| **QoS** | Quality-of-service class / priority hint |
+| **Clock domain** | Timing island; crossing domains has design implications |
+| **MCP** | Model Context Protocol — standard way to expose *tools* to AI agents |
+| **Tool** | A typed function an agent can call (list, get, validate…) |
+
+You do **not** need prior interconnect expertise. Treat the JSON as a typed graph of a SoC design and build agent-facing tools that make it operable.
+
+
+================================================================================
+
+FILE: examples/mcp_client_demo.py
+================================================================================
+
+#!/usr/bin/env python3
+"""Run a small offline client against the stdio MCP server.
+
+This is intentionally a scripted client rather than a remote-LLM demo.  It
+still proves the integration that matters here: a separate process discovers
+tools and calls the same explorer implementation exposed by the adapter.
+
+The demo copies Orion to a temporary directory, so neither this script nor the
+server can accidentally alter the canonical teaching fixture.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+
+ROOT = Path(__file__).resolve().parents[1]
+CANONICAL_DESIGN = ROOT / "data" / "designs" / "orion_soc.json"
+DEFAULT_OUTPUT = ROOT / "artifacts" / "mcp_demo_transcript.json"
+
+
+def _requests() -> list[dict[str, Any]]:
+    """A meaningful exploration sequence, including a safe session edit."""
+
+    return [
+        {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": {"name": "orion-demo-client", "version": "1.0"},
+            },
+        },
+        {"jsonrpc": "2.0", "method": "notifications/initialized"},
+        {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
+        {
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "tools/call",
+            "params": {"name": "list_components", "arguments": {}},
+        },
+        {
+            "jsonrpc": "2.0",
+            "id": 4,
+            "method": "tools/call",
+            "params": {"name": "search", "arguments": {"query": "r0"}},
+        },
+        {
+            "jsonrpc": "2.0",
+            "id": 5,
+            "method": "tools/call",
+            "params": {"name": "validate_design", "arguments": {}},
+        },
+        {
+            "jsonrpc": "2.0",
+            "id": 6,
+            "method": "tools/call",
+            "params": {
+                "name": "update_property",
+                "arguments": {
+                    "element_id": "cpu0",
+                    "prop_path": "qos",
+                    "value": "medium",
+                    "persist": False,
+                },
+            },
+        },
+        {
+            "jsonrpc": "2.0",
+            "id": 7,
+            "method": "tools/call",
+            "params": {"name": "get_component", "arguments": {"component_id": "cpu0"}},
+        },
+        {
+            "jsonrpc": "2.0",
+            "id": 8,
+            "method": "tools/call",
+            "params": {"name": "export_report", "arguments": {"format": "text"}},
+        },
+    ]
+
+
+def run_demo(output_path: Path = DEFAULT_OUTPUT) -> dict[str, Any]:
+    """Start the server, exchange JSON-RPC messages, and return a transcript."""
+
+    canonical_sha256 = _sha256(CANONICAL_DESIGN)
+    with tempfile.TemporaryDirectory(prefix="orion-mcp-demo-") as temp_dir:
+        copied_design = Path(temp_dir) / "orion_soc.json"
+        shutil.copy2(CANONICAL_DESIGN, copied_design)
+        messages = _requests()
+        protocol_input = "".join(
+            json.dumps(message, ensure_ascii=False) + "\n" for message in messages
+        )
+        environment = os.environ.copy()
+        # Running from the solution root makes ``python -m soc_explorer...``
+        # work even if a user starts this script from another directory.
+        environment["PYTHONPATH"] = str(ROOT) + os.pathsep + environment.get("PYTHONPATH", "")
+        command = [
+            sys.executable,
+            "-u",
+            "-m",
+            "soc_explorer.mcp_server",
+            "--design",
+            str(copied_design),
+        ]
+        completed = subprocess.run(
+            command,
+            input=protocol_input,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd=ROOT,
+            env=environment,
+            timeout=15,
+            check=False,
+        )
+        if completed.returncode != 0:
+            raise RuntimeError(
+                "MCP server failed with exit code "
+                f"{completed.returncode}: {completed.stderr.strip()}"
+            )
+        responses = [
+            json.loads(line) for line in completed.stdout.splitlines() if line.strip()
+        ]
+        response_by_id = {response.get("id"): response for response in responses}
+        expected_ids = {message["id"] for message in messages if "id" in message}
+        if set(response_by_id) != expected_ids:
+            raise RuntimeError(
+                f"Expected responses for {sorted(expected_ids)}, got {sorted(response_by_id)}"
+            )
+
+        exchanges = []
+        for message in messages:
+            if "id" not in message:
+                continue
+            response = response_by_id[message["id"]]
+            exchange: dict[str, Any] = {
+                "id": message["id"],
+                "method": message["method"],
+                "request": message,
+                "response": response,
+            }
+            decoded = _decode_tool_result(response)
+            if decoded is not None:
+                exchange["decoded_tool_result"] = decoded
+            exchanges.append(exchange)
+
+        copied_sha256_after = _sha256(copied_design)
+
+    canonical_sha256_after = _sha256(CANONICAL_DESIGN)
+    if canonical_sha256_after != canonical_sha256:
+        raise RuntimeError("The canonical Orion fixture changed during the MCP demo.")
+
+    transcript = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "transport": "JSON-RPC 2.0 over stdio; one message per line",
+        "server_command": ["python", "-u", "-m", "soc_explorer.mcp_server", "--design", "<temporary-copy>"],
+        "canonical_design_sha256_before": canonical_sha256,
+        "canonical_design_sha256_after": canonical_sha256_after,
+        "temporary_design_sha256_before": canonical_sha256,
+        "temporary_design_sha256_after": copied_sha256_after,
+        "server_stderr": completed.stderr,
+        "exchanges": exchanges,
+        "observations": [
+            "tools/list exposed the explorer catalog over MCP.",
+            "validate_design reported L7's dangling destination and L_loop's self-loop.",
+            "update_property with persist=false changed cpu0.qos for the later get_component call only.",
+            "The canonical JSON fingerprint was unchanged by the demo.",
+        ],
+    }
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        json.dumps(transcript, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
+    return transcript
+
+
+def _decode_tool_result(response: dict[str, Any]) -> Any | None:
+    result = response.get("result")
+    if not isinstance(result, dict) or "content" not in result:
+        return None
+    content = result["content"]
+    if not isinstance(content, list) or not content or not isinstance(content[0], dict):
+        return None
+    text = content[0].get("text")
+    if not isinstance(text, str):
+        return None
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        return text
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    args = parser.parse_args(argv)
+    transcript = run_demo(args.output)
+    print(f"Wrote {args.output}")
+    print(f"MCP exchanges: {len(transcript['exchanges'])}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+
+
+================================================================================
+
+FILE: examples/mcp_stub_notes.md
+================================================================================
+
+# MCP implementation notes (optional reading)
+
+You are expected to design the MCP server yourself.
+
+Useful references:
+- Model Context Protocol specification and Python SDK
+- Prefer structured tool inputs/outputs (e.g. Pydantic models)
+- Keep the mini_eda package as the source of truth for design state
+- Do not replace `MiniEda` wholesale; tools may adapt/extend stock behavior
+  (you need not mirror its methods 1:1)
+
+## How this relates to the two proofs
+
+- **Proof 1 (scenarios):** `scripts/run_required_scenarios.py` calls
+  `soc_explorer.adapter:get_adapter` **in-process**. Wire the adapter to the
+  same tool functions your MCP server exposes. No MCP wire protocol here.
+- **Proof 2 (MCP / agent usability):** expose those tools via a real MCP
+  server, then either:
+  - write a small client/agent that connects over MCP, **or**
+  - connect an existing host (Cursor, Claude Desktop, …) and document a short
+    session where the host discovers and uses your tools on `orion_soc`.
+
+Suggested layout (non-prescriptive):
+
+```
+src/orion_mcp/
+  server.py      # MCP server entrypoint
+  tools.py       # tool registrations (shared with the adapter)
+  schemas.py     # request/response models
+examples/
+  agent_demo.py  # optional custom client/agent over MCP
+```
+
+Do not commit API keys. Use `.env` locally if you call a remote LLM.
+
+
+================================================================================
+
+FILE: examples/smoke_eda.py
+================================================================================
+
+"""Smoke script: explore the mini-EDA without MCP."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from mini_eda import MiniEda
+
+DESIGN = Path(__file__).resolve().parents[1] / "data" / "designs" / "orion_soc.json"
+
+
+def main() -> None:
+    eda = MiniEda(DESIGN)
+    print(eda.export_report("text"))
+    print("--- components ---")
+    for comp in eda.list_components():
+        print(f"  {comp.id:12} {comp.kind:10} {comp.name}")
+    print("--- sample search: 'r0' ---")
+    for hit in eda.search("r0"):
+        print(f"  {hit.get('type')} {hit.get('id')}")
+    print("--- validate (built-in) ---")
+    issues = eda.validate()
+    if not issues:
+        print("  (no issues reported by built-in checks)")
+    for issue in issues:
+        print(f"  [{issue.severity}] {issue.code}: {issue.message}")
+
+
+if __name__ == "__main__":
+    main()
+
+
+================================================================================
+
+FILE: extras/systemdesign.md
+================================================================================
+
+# Orion SoC Explorer — System Design
+
+## 1. Architecture
+
+```text
+Scenario Runner → Adapter ─────┐
+                               ├→ ExplorerService → MiniEda → Orion JSON
+MCP Client → MCP stdio Server ─┘
+```
+
+`ExplorerService` contains the shared tool logic, validation, errors, and update policy. Both the scenario runner and MCP server therefore expose the same behavior.
+
+## 2. Responsibilities
+
+| Component         | Responsibility                             |
+| ----------------- | ------------------------------------------ |
+| `MiniEda`         | Source of truth for design data            |
+| `ExplorerService` | Tools, validation, search, updates, errors |
+| `ExplorerAdapter` | In-process interface for scenarios         |
+| `MCP Server`      | JSON-RPC/MCP interface over stdio          |
+| `MCP Client Demo` | End-to-end subprocess integration proof    |
+
+## 3. Tool Flow
+
+```text
+Client
+  ↓
+Adapter / MCP Server
+  ↓
+ExplorerService.call(name, arguments)
+  ↓
+Validate arguments
+  ↓
+MiniEda list / get / update
+  ↓
+{ok, result} or {ok:false, error}
+```
+
+The service normalizes expected failures into stable JSON rather than exposing Python exceptions.
+
+## 4. Validation
+
+`validate_design` combines existing `MiniEda` validation with graph checks.
+
+The Orion fixture contains:
+
+* `L7` → dangling destination `sram_l2` (**error**)
+* `L_loop` → `r0 → r0` self-loop (**warning**)
+
+## 5. Update Safety
+
+| Mode             | Memory | Disk |
+| ---------------- | -----: | ---: |
+| `dry_run: true`  |     No |   No |
+| `persist: false` |    Yes |   No |
+| `persist: true`  |    Yes |  Yes |
+
+`persist: false` changes the current service session, so later reads see the update.
+
+Persistent writes require explicit permission and are blocked for the canonical Orion JSON.
+
+## 6. MCP Boundary
+
+```text
+stdin JSON-RPC
+      ↓
+StdioMcpServer
+      ↓
+ExplorerService
+      ↓
+MiniEda
+      ↓
+stdout JSON-RPC
+```
+
+Supported operations include `initialize`, `ping`, `tools/list`, `tools/call`, and `notifications/initialized`.
+
+Protocol errors use standard JSON-RPC errors. Tool-level failures are returned as MCP tool results with `isError: true`.
+
+## 7. Testing
+
+Tests cover:
+
+* list/get/search
+* graph validation
+* argument and error handling
+* dry-run/session/persistent updates
+* canonical-file protection
+* reports
+* adapter/service integration
+* JSON-RPC protocol errors
+* real MCP subprocess discovery and tool calls
+
+Generated artifacts provide scenario results, tool manifests, test output, and the MCP demo transcript.
+
+## 8. Scope
+
+This is intentionally a local teaching prototype. Production evolution could add authentication, authorization, concurrency control, transactions, audit logging, larger graph analysis, and additional MCP capabilities.
+
+
+================================================================================
+
+FILE: mini_eda/__init__.py
+================================================================================
+
+"""Minimal local EDA simulator for the interview exercise."""
+
+from .api import MiniEda
+from .exceptions import EdaError, NotFoundError, ValidationError
+
+__all__ = ["MiniEda", "EdaError", "NotFoundError", "ValidationError"]
+__version__ = "0.1.0"
+
+
+================================================================================
+
+FILE: mini_eda/api.py
+================================================================================
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
+from .exceptions import NotFoundError, ValidationError
+from .models import Component, Design, Issue, Link
+from .store import DesignStore
+
+
+class MiniEda:
+    """Small local EDA-like façade over a JSON design.
+
+    This API is intentionally simple. Your MCP layer should sit on top of it —
+    do not replace MiniEda wholesale. You may adapt or extend what tools expose
+    (behavior, errors, payloads); you need not mirror these methods 1:1.
+    """
+
+    def __init__(self, design_path: str | Path) -> None:
+        self._store = DesignStore(design_path)
+        self._store.load()
+
+    @property
+    def design(self) -> Design:
+        return self._store.design
+
+    def reload(self) -> Design:
+        return self._store.load()
+
+    def list_components(self, kind: str | None = None) -> list[Component]:
+        comps = list(self.design.components.values())
+        if kind is not None:
+            comps = [c for c in comps if c.kind == kind]
+        return sorted(comps, key=lambda c: c.id)
+
+    def get_component(self, component_id: str) -> Component:
+        try:
+            return self.design.components[component_id]
+        except KeyError as exc:
+            raise NotFoundError(f"Component not found: {component_id}") from exc
+
+    def list_links(
+        self, src: str | None = None, dst: str | None = None
+    ) -> list[Link]:
+        links = list(self.design.links.values())
+        if src is not None:
+            links = [link for link in links if link.src == src]
+        if dst is not None:
+            links = [link for link in links if link.dst == dst]
+        return sorted(links, key=lambda link: link.id)
+
+    def get_link(self, link_id: str) -> Link:
+        try:
+            return self.design.links[link_id]
+        except KeyError as exc:
+            raise NotFoundError(f"Link not found: {link_id}") from exc
+
+    def search(self, query: str) -> list[dict[str, Any]]:
+        """Case-sensitive substring search over ids, names, kinds, endpoints."""
+        if not query:
+            return []
+        hits: list[dict[str, Any]] = []
+        for comp in self.design.components.values():
+            blob = f"{comp.id} {comp.name} {comp.kind}"
+            if query in blob:
+                hits.append({"type": "component", **comp.to_dict()})
+        for link in self.design.links.values():
+            blob = f"{link.id} {link.src} {link.dst}"
+            if query in blob:
+                hits.append({"type": "link", **link.to_dict()})
+        return hits
+
+    def update_property(
+        self, element_id: str, prop_path: str, value: Any, *, persist: bool = True
+    ) -> dict[str, Any]:
+        """Update a property on a component or link.
+
+        ``prop_path`` is a dotted path relative to the element's ``properties``
+        dict, e.g. ``qos`` or ``bandwidth_mbps``.
+
+        When ``persist`` is true (default), the design file is overwritten
+        immediately via ``save()``.
+        """
+        if not prop_path or prop_path.startswith("/") or ".." in prop_path:
+            raise ValidationError(f"Invalid property path: {prop_path!r}")
+
+        element: Component | Link
+        kind: str
+        if element_id in self.design.components:
+            element = self.design.components[element_id]
+            kind = "component"
+        elif element_id in self.design.links:
+            element = self.design.links[element_id]
+            kind = "link"
+        else:
+            raise NotFoundError(f"Element not found: {element_id}")
+
+        _assign_path(element.properties, prop_path, value)
+        if persist:
+            self.save()
+        return {"type": kind, **element.to_dict()}
+
+    def validate(self) -> list[Issue]:
+        """Run a *minimal* consistency check.
+
+        This intentionally covers only a subset of possible issues.
+        """
+        issues: list[Issue] = []
+        seen: set[str] = set()
+        for comp_id in self.design.components:
+            if comp_id in seen:
+                issues.append(
+                    Issue(
+                        code="DUPLICATE_COMPONENT_ID",
+                        message=f"Duplicate component id: {comp_id}",
+                        element_id=comp_id,
+                    )
+                )
+            seen.add(comp_id)
+
+        for link in self.design.links.values():
+            bw = link.properties.get("bandwidth_mbps")
+            if bw is not None:
+                try:
+                    if float(bw) <= 0:
+                        issues.append(
+                            Issue(
+                                code="NON_POSITIVE_BANDWIDTH",
+                                message=f"bandwidth_mbps must be > 0 on {link.id}",
+                                element_id=link.id,
+                            )
+                        )
+                except (TypeError, ValueError):
+                    issues.append(
+                        Issue(
+                            code="INVALID_BANDWIDTH",
+                            message=f"bandwidth_mbps is not numeric on {link.id}",
+                            element_id=link.id,
+                        )
+                    )
+        return issues
+
+    def export_report(self, fmt: str = "text") -> str | dict[str, Any]:
+        design = self.design
+        summary = {
+            "name": design.name,
+            "version": design.version,
+            "component_count": len(design.components),
+            "link_count": len(design.links),
+            "components_by_kind": _count_by_kind(design),
+            "issue_count": len(self.validate()),
+        }
+        if fmt == "json":
+            return summary
+        if fmt != "text":
+            raise ValidationError(f"Unsupported report format: {fmt}")
+        lines = [
+            f"Design: {summary['name']} (v{summary['version']})",
+            f"Components: {summary['component_count']}",
+            f"Links: {summary['link_count']}",
+            "By kind: "
+            + ", ".join(
+                f"{k}={v}" for k, v in sorted(summary["components_by_kind"].items())
+            ),
+            f"Validation issues (built-in checks): {summary['issue_count']}",
+        ]
+        return "\n".join(lines)
+
+    def save(self) -> None:
+        self._store.save()
+
+
+def _count_by_kind(design: Design) -> dict[str, int]:
+    out: dict[str, int] = {}
+    for comp in design.components.values():
+        out[comp.kind] = out.get(comp.kind, 0) + 1
+    return out
+
+
+def _assign_path(root: dict[str, Any], path: str, value: Any) -> None:
+    parts = path.split(".")
+    cur: dict[str, Any] = root
+    for part in parts[:-1]:
+        nxt = cur.get(part)
+        if not isinstance(nxt, dict):
+            nxt = {}
+            cur[part] = nxt
+        cur = nxt
+    cur[parts[-1]] = value
+
+
+================================================================================
+
+FILE: mini_eda/exceptions.py
+================================================================================
+
+"""Exceptions raised by the mini-EDA."""
+
+
+class EdaError(Exception):
+    """Base error for mini-EDA operations."""
+
+
+class NotFoundError(EdaError):
+    """Raised when a component or link id cannot be resolved."""
+
+
+class ValidationError(EdaError):
+    """Raised when an update or operation violates a basic invariant."""
+
+
+================================================================================
+
+FILE: mini_eda/models.py
+================================================================================
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any
+
+
+@dataclass
+class Component:
+    id: str
+    kind: str
+    name: str
+    properties: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "kind": self.kind,
+            "name": self.name,
+            "properties": dict(self.properties),
+        }
+
+
+@dataclass
+class Link:
+    id: str
+    src: str
+    dst: str
+    properties: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "src": self.src,
+            "dst": self.dst,
+            "properties": dict(self.properties),
+        }
+
+
+@dataclass
+class Issue:
+    code: str
+    message: str
+    element_id: str | None = None
+    severity: str = "error"
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "code": self.code,
+            "message": self.message,
+            "element_id": self.element_id,
+            "severity": self.severity,
+        }
+
+
+@dataclass
+class Design:
+    name: str
+    version: str
+    description: str
+    components: dict[str, Component]
+    links: dict[str, Link]
+    notes: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "version": self.version,
+            "description": self.description,
+            "components": [c.to_dict() for c in self.components.values()],
+            "links": [link.to_dict() for link in self.links.values()],
+            "notes": list(self.notes),
+        }
+
+
+================================================================================
+
+FILE: mini_eda/store.py
+================================================================================
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
+
+from .exceptions import ValidationError
+from .models import Component, Design, Link
+
+
+class DesignStore:
+    """JSON file-backed design store.
+
+    Note: save() overwrites the file in place. There is no backup, lock,
+    or transactional write. Callers are responsible for any higher-level
+    safety policy.
+    """
+
+    def __init__(self, path: str | Path) -> None:
+        self.path = Path(path)
+        self._design: Design | None = None
+
+    @property
+    def design(self) -> Design:
+        if self._design is None:
+            raise ValidationError("No design loaded")
+        return self._design
+
+    def load(self) -> Design:
+        raw = json.loads(self.path.read_text(encoding="utf-8"))
+        components = {
+            c["id"]: Component(
+                id=c["id"],
+                kind=c["kind"],
+                name=c["name"],
+                properties=dict(c.get("properties") or {}),
+            )
+            for c in raw.get("components", [])
+        }
+        links = {
+            link["id"]: Link(
+                id=link["id"],
+                src=link["src"],
+                dst=link["dst"],
+                properties=dict(link.get("properties") or {}),
+            )
+            for link in raw.get("links", [])
+        }
+        self._design = Design(
+            name=raw.get("name", self.path.stem),
+            version=str(raw.get("version", "0")),
+            description=raw.get("description", ""),
+            components=components,
+            links=links,
+            notes=list(raw.get("notes") or []),
+        )
+        return self._design
+
+    def save(self) -> None:
+        """Persist the current design, overwriting the source file."""
+        design = self.design
+        payload: dict[str, Any] = design.to_dict()
+        self.path.write_text(
+            json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+
+
+================================================================================
+
+FILE: pyproject.toml
+================================================================================
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "arteris-ai-interview-starter"
+version = "0.1.0"
+description = "SoC Design Explorer MCP starter — Arteris AI Software Engineer interview"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+[project.scripts]
+
+orion-soc-mcp = 'soc_explorer.mcp_server:main'
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+# Candidates may add: mcp, pydantic, httpx, openai, anthropic, etc.
+mcp = ["mcp>=1.0", "pydantic>=2.0"]
+
+[tool.setuptools.packages.find]
+include = ["mini_eda*", "soc_explorer*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+
+================================================================================
+
+FILE: scripts/run_required_scenarios.py
+================================================================================
+
+#!/usr/bin/env python3
+"""Run required scenarios against the candidate adapter and write artifacts.
+
+Usage:
+  python scripts/run_required_scenarios.py
+  python scripts/run_required_scenarios.py --adapter soc_explorer.adapter:get_adapter
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import importlib
+import json
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Callable
+
+ROOT = Path(__file__).resolve().parents[1]
+DESIGN = ROOT / "data" / "designs" / "orion_soc.json"
+ARTIFACTS = ROOT / "artifacts"
+
+
+def _load_adapter(spec: str) -> Any:
+    module_name, _, attr = spec.partition(":")
+    if not attr:
+        attr = "get_adapter"
+    mod = importlib.import_module(module_name)
+    factory: Callable[[], Any] = getattr(mod, attr)
+    return factory()
+
+
+def _design_fingerprint(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _run(adapter: Any) -> dict[str, Any]:
+    scenarios: list[dict[str, Any]] = []
+
+    def record(scenario_id: str, tool: str, args: dict[str, Any]) -> dict[str, Any]:
+        response = adapter.call(tool, args)
+        entry = {
+            "id": scenario_id,
+            "tool": tool,
+            "arguments": args,
+            "response": response,
+        }
+        scenarios.append(entry)
+        return response
+
+    # S1 — inventory
+    record("S1_list_components", "list_components", {})
+
+    # S2 — known component
+    record("S2_get_cpu0", "get_component", {"component_id": "cpu0"})
+
+    # S3 — structured not-found
+    record("S3_get_missing", "get_component", {"component_id": "no_such_block"})
+
+    # S4 — validation as implemented by candidate
+    record("S4_validate", "validate_design", {})
+
+    # S5 — search behavior (observability / false positives)
+    record("S5_search_r0", "search", {"query": "r0"})
+
+    # S6 — mutation + read-back (use persist false if adapter supports it;
+    # template persists — runner uses a note field only)
+    record(
+        "S6_update_qos",
+        "update_property",
+        {
+            "element_id": "cpu0",
+            "prop_path": "qos",
+            "value": "medium",
+            "persist": False,
+        },
+    )
+    record("S6b_reread_cpu0", "get_component", {"component_id": "cpu0"})
+
+    # S7 — report
+    record("S7_report", "export_report", {"format": "text"})
+
+    tools = adapter.list_tools()
+    return {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "design_path": str(DESIGN.relative_to(ROOT)),
+        "design_sha256": _design_fingerprint(DESIGN),
+        "tools": tools,
+        "scenarios": scenarios,
+    }
+
+
+def _write_manifest(tools: list[dict[str, Any]]) -> None:
+    ARTIFACTS.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "design_sha256": _design_fingerprint(DESIGN),
+        "tools": tools,
+    }
+    (ARTIFACTS / "tools_manifest.json").write_text(
+        json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--adapter",
+        default="soc_explorer.adapter:get_adapter",
+        help="module:factory for the candidate adapter",
+    )
+    args = parser.parse_args()
+
+    sys.path.insert(0, str(ROOT))
+    adapter = _load_adapter(args.adapter)
+    payload = _run(adapter)
+
+    ARTIFACTS.mkdir(parents=True, exist_ok=True)
+    out = ARTIFACTS / "scenario_results.json"
+    out.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    _write_manifest(payload["tools"])
+
+    notes = ARTIFACTS / "NOTES.md"
+    if not notes.exists():
+        notes.write_text(
+            "\n".join(
+                [
+                    "# Submission notes",
+                    "",
+                    "- Time spent (hours):",
+                    "- AI assistants used:",
+                    "- What I designed myself vs AI-assisted:",
+                    "- Surprises observed while running Orion (facts, not guesses):",
+                    "- Known limits of my solution:",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+    print(f"Wrote {out.relative_to(ROOT)}")
+    print(f"Wrote {Path('artifacts/tools_manifest.json')}")
+    print(f"Scenarios: {len(payload['scenarios'])}, tools: {len(payload['tools'])}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+
+
+================================================================================
+
+FILE: soc_explorer/__init__.py
+================================================================================
+
+"""SoC Design Explorer package (candidate MCP layer lives here or nearby)."""
+
+__all__ = ["adapter"]
+
+
+================================================================================
+
+FILE: soc_explorer/adapter.py
+================================================================================
+
+"""In-process entry point used by the required-scenarios runner.
+
+The runner intentionally does not start an MCP process.  This adapter therefore
+does almost no work: it forwards calls to the exact same ``ExplorerService``
+that the MCP server uses.  Keeping it thin prevents two subtly different tool
+contracts from emerging.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
+from .service import DEFAULT_DESIGN, ExplorerService
+
+
+class ExplorerAdapter:
+    """Small compatibility wrapper around the shared explorer service."""
+
+    def __init__(
+        self,
+        design_path: str | Path | None = None,
+        *,
+        allow_persist: bool = False,
+    ) -> None:
+        self.service = ExplorerService(
+            design_path or DEFAULT_DESIGN, allow_persist=allow_persist
+        )
+        # Compatibility convenience for a reader migrating from the starter.
+        # Tool calls still go through ``service`` so this is not a second path.
+        self.eda = self.service.eda
+
+    def list_tools(self) -> list[dict[str, Any]]:
+        return self.service.list_tools()
+
+    def call(
+        self, tool_name: str, arguments: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        return self.service.call(tool_name, arguments)
+
+
+# Keeping the old name as an alias is harmless for anyone who imported the
+# starter template, while ``get_adapter`` now returns the real implementation.
+TemplateAdapter = ExplorerAdapter
+
+
+def get_adapter() -> ExplorerAdapter:
+    """Factory imported by ``scripts/run_required_scenarios.py``."""
+
+    # Persistent writes remain off for the canonical Orion fixture.  Scenario
+    # S6 uses persist=false and proves the separate in-memory session behavior.
+    return ExplorerAdapter()
+
+
+================================================================================
+
+FILE: soc_explorer/mcp_server.py
+================================================================================
+
+"""A minimal, dependency-free MCP-compatible server over JSON-RPC stdio.
+
+It implements the useful MCP subset for this exercise:
+
+* ``initialize`` and ``notifications/initialized``
+* ``ping``
+* ``tools/list``
+* ``tools/call``
+
+One JSON-RPC message is read from each stdin line and one response (when a
+request has an id) is written to stdout.  Diagnostic messages must go to stderr
+so they cannot corrupt the protocol stream.  The service behind this transport
+is the same one used by ``soc_explorer.adapter``.
+"""
+
+from __future__ import annotations
+
+import argparse
+import copy
+import json
+import sys
+from pathlib import Path
+from typing import Any
+
+from .service import DEFAULT_DESIGN, ExplorerService
+
+
+SERVER_NAME = "orion-soc-explorer-easy"
+SERVER_VERSION = "1.0.0"
+# These versions cover common MCP hosts while keeping the implementation small.
+SUPPORTED_PROTOCOL_VERSIONS = ("2024-11-05", "2025-03-26", "2025-06-18")
+DEFAULT_PROTOCOL_VERSION = SUPPORTED_PROTOCOL_VERSIONS[-1]
+
+
+class StdioMcpServer:
+    """Translate a JSON-RPC request into the shared explorer service contract."""
+
+    def __init__(self, service: ExplorerService) -> None:
+        self.service = service
+        self.initialized = False
+
+    def handle(self, request: Any) -> dict[str, Any] | None:
+        """Handle one decoded JSON message.
+
+        A return value of ``None`` means this was a valid notification and
+        JSON-RPC requires no reply.
+        """
+
+        if not isinstance(request, dict):
+            return _rpc_error(None, -32600, "Invalid Request: expected an object.")
+        if request.get("jsonrpc") != "2.0":
+            return _rpc_error(request.get("id"), -32600, "Invalid Request: jsonrpc must be '2.0'.")
+
+        is_notification = "id" not in request
+        request_id = request.get("id")
+        method = request.get("method")
+        if not isinstance(method, str) or not method:
+            return _rpc_error(request_id, -32600, "Invalid Request: method must be a non-empty string.")
+        params = request.get("params", {})
+        if not isinstance(params, dict):
+            return _rpc_error(request_id, -32602, "Invalid params: params must be an object.")
+
+        if method == "notifications/initialized":
+            self.initialized = True
+            return None
+        if method.startswith("notifications/"):
+            # Unknown notifications are safely ignored, as a small server has
+            # no progress, logging, or cancellation implementation.
+            return None
+
+        try:
+            result = self._dispatch(method, params)
+        except RpcRequestError as exc:
+            response = _rpc_error(request_id, exc.code, exc.message, exc.data)
+        except Exception:  # noqa: BLE001 - never take down the protocol loop
+            response = _rpc_error(request_id, -32603, "Internal server error.")
+        else:
+            response = {"jsonrpc": "2.0", "id": request_id, "result": result}
+
+        # A malformed *request* still receives an error, while ordinary
+        # notifications above deliberately receive no response.
+        return None if is_notification else response
+
+    def _dispatch(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
+        if method == "initialize":
+            requested_version = params.get("protocolVersion")
+            protocol_version = (
+                requested_version
+                if isinstance(requested_version, str)
+                and requested_version in SUPPORTED_PROTOCOL_VERSIONS
+                else DEFAULT_PROTOCOL_VERSION
+            )
+            return {
+                "protocolVersion": protocol_version,
+                "capabilities": {"tools": {"listChanged": False}},
+                "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION},
+                "instructions": (
+                    "Explore the local Orion SoC. Start with validate_design; "
+                    "use persist=false (the default) for safe session-only edits."
+                ),
+            }
+        if method == "ping":
+            return {}
+        if method == "tools/list":
+            # MCP wants exactly this schema field spelling.  ``arity`` and
+            # ``mutates`` are useful harmless extensions for simple clients.
+            return {"tools": self.service.list_tools()}
+        if method == "tools/call":
+            name = params.get("name")
+            arguments = params.get("arguments", {})
+            if not isinstance(name, str) or not name:
+                raise RpcRequestError(-32602, "Invalid params: name must be a non-empty string.")
+            if not isinstance(arguments, dict):
+                raise RpcRequestError(-32602, "Invalid params: arguments must be an object.")
+            tool_response = self.service.call(name, arguments)
+            return _mcp_tool_result(tool_response)
+        raise RpcRequestError(-32601, f"Method not found: {method}")
+
+
+class RpcRequestError(Exception):
+    """A protocol-level invalid request, distinct from a tool-level failure."""
+
+    def __init__(self, code: int, message: str, data: Any | None = None) -> None:
+        self.code = code
+        self.message = message
+        self.data = data
+
+
+def _mcp_tool_result(tool_response: dict[str, Any]) -> dict[str, Any]:
+    """Represent a normal explorer error as an MCP tool result, not RPC failure."""
+
+    if tool_response["ok"]:
+        payload = copy.deepcopy(tool_response["result"])
+        return {
+            "content": [
+                {
+                    "type": "text",
+                    "text": json.dumps(payload, ensure_ascii=False, sort_keys=True),
+                }
+            ],
+            # ``structuredContent`` is optional in MCP, but lets modern hosts
+            # consume data without reparsing the text block.
+            "structuredContent": {"result": payload},
+        }
+
+    error = copy.deepcopy(tool_response["error"])
+    return {
+        "content": [
+            {
+                "type": "text",
+                "text": json.dumps(error, ensure_ascii=False, sort_keys=True),
+            }
+        ],
+        "isError": True,
+    }
+
+
+def _rpc_error(
+    request_id: Any, code: int, message: str, data: Any | None = None
+) -> dict[str, Any]:
+    error: dict[str, Any] = {"code": code, "message": message}
+    if data is not None:
+        error["data"] = data
+    return {"jsonrpc": "2.0", "id": request_id, "error": error}
+
+
+def serve(service: ExplorerService) -> int:
+    """Run the newline-delimited JSON-RPC loop until stdin is closed."""
+
+    server = StdioMcpServer(service)
+    for line_number, raw_line in enumerate(sys.stdin, start=1):
+        if not raw_line.strip():
+            continue
+        try:
+            request = json.loads(raw_line)
+        except json.JSONDecodeError as exc:
+            response = _rpc_error(None, -32700, "Parse error.", {"line": line_number, "detail": exc.msg})
+        else:
+            response = server.handle(request)
+        if response is not None:
+            sys.stdout.write(json.dumps(response, ensure_ascii=False) + "\n")
+            sys.stdout.flush()
+    return 0
+
+
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Run the Orion SoC Explorer MCP server over stdio.")
+    parser.add_argument(
+        "--design",
+        type=Path,
+        default=DEFAULT_DESIGN,
+        help="Path to a JSON design (defaults to the protected Orion fixture).",
+    )
+    parser.add_argument(
+        "--allow-persist",
+        action="store_true",
+        help="Allow persist=true only for a non-canonical copied design.",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _parse_args(argv)
+    design_path = args.design.resolve()
+    if args.allow_persist and design_path == DEFAULT_DESIGN.resolve():
+        print(
+            "Refusing --allow-persist for the canonical Orion fixture. "
+            "Copy it first and pass --design /path/to/copy.json.",
+            file=sys.stderr,
+        )
+        return 2
+    try:
+        service = ExplorerService(design_path, allow_persist=args.allow_persist)
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        print(f"Could not load design {design_path}: {exc}", file=sys.stderr)
+        return 2
+    return serve(service)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+
+
+================================================================================
+
+FILE: soc_explorer/service.py
+================================================================================
+
+"""The shared, agent-facing tool layer for the SoC Design Explorer.
+
+This module is intentionally dependency-free and deliberately small.  Both the
+in-process scenario adapter and the stdio MCP server call :class:`ExplorerService`,
+so there is one place to understand tool behavior, input checks, and errors.
+
+``MiniEda`` remains the owner of loaded design state and persistence.  The
+service adds a safer public contract on top of that API; it does not create a
+second design model or parser.
+"""
+
+from __future__ import annotations
+
+import copy
+import hashlib
+import json
+import math
+import re
+from pathlib import Path
+from typing import Any, Callable
+
+from mini_eda import MiniEda, NotFoundError, ValidationError
+
+
+ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_DESIGN = ROOT / "data" / "designs" / "orion_soc.json"
+
+
+class ToolError(Exception):
+    """An expected tool failure with a stable, JSON-friendly error shape."""
+
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        *,
+        error_type: str = "ValidationError",
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.code = code
+        self.error_type = error_type
+        self.details = details
+
+    def to_dict(self) -> dict[str, Any]:
+        error: dict[str, Any] = {
+            "type": self.error_type,
+            "code": self.code,
+            "message": str(self),
+        }
+        if self.details:
+            error["details"] = copy.deepcopy(self.details)
+        return error
+
+
+# The catalog is data rather than framework registration.  It is returned by
+# the adapter and converted directly to MCP's ``tools/list`` response.
+TOOL_CATALOG: tuple[dict[str, Any], ...] = (
+    {
+        "name": "list_components",
+        "description": "List components, optionally filtered by their exact kind.",
+        "mutates": False,
+        "arity": 0,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "description": "Optional exact component kind, for example 'router'.",
+                }
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "list_links",
+        "description": "List directed links, optionally filtered by exact source and/or destination id.",
+        "mutates": False,
+        "arity": 0,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "src": {"type": "string", "description": "Optional exact source id."},
+                "dst": {"type": "string", "description": "Optional exact destination id."},
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "get_component",
+        "description": "Get one component, including all of its properties.",
+        "mutates": False,
+        "arity": 1,
+        "inputSchema": {
+            "type": "object",
+            "properties": {"component_id": {"type": "string"}},
+            "required": ["component_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "get_link",
+        "description": "Get one directed link, including its endpoints and properties.",
+        "mutates": False,
+        "arity": 1,
+        "inputSchema": {
+            "type": "object",
+            "properties": {"link_id": {"type": "string"}},
+            "required": ["link_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "search",
+        "description": "Search components and links with a case-insensitive smart or substring match.",
+        "mutates": False,
+        "arity": 1,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "minLength": 1},
+                "scope": {
+                    "type": "string",
+                    "enum": ["all", "components", "links"],
+                    "default": "all",
+                },
+                "match_mode": {
+                    "type": "string",
+                    "enum": ["smart", "substring"],
+                    "default": "smart",
+                },
+            },
+            "required": ["query"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "validate_design",
+        "description": "Check link endpoints, self-loops, and MiniEda's bandwidth rules.",
+        "mutates": False,
+        "arity": 0,
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "update_property",
+        "description": "Update one dotted property path. Defaults to a non-persistent session update.",
+        "mutates": True,
+        "arity": 3,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "element_id": {"type": "string"},
+                "prop_path": {
+                    "type": "string",
+                    "description": "Dotted path below properties, for example 'qos' or 'limits.read'.",
+                },
+                "value": {
+                    "description": "Any finite JSON value to store at prop_path.",
+                },
+                "persist": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Write to disk only when this service was explicitly allowed to persist.",
+                },
+                "dry_run": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Return the proposed change without changing memory or disk.",
+                },
+            },
+            "required": ["element_id", "prop_path", "value"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "export_report",
+        "description": "Create a compact report containing inventory and validation findings.",
+        "mutates": False,
+        "arity": 0,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "format": {
+                    "type": "string",
+                    "enum": ["text", "json"],
+                    "default": "text",
+                }
+            },
+            "additionalProperties": False,
+        },
+    },
+)
+
+
+_PATH_SEGMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_MISSING = object()
+
+
+class ExplorerService:
+    """A small, predictable tool façade over one ``MiniEda`` instance.
+
+    ``persist=False`` intentionally changes this service's in-memory session:
+    a later get call sees the new value, while the JSON fixture stays untouched.
+    Persistent writes are disabled by default, particularly for the canonical
+    teaching fixture.  A caller must opt in with ``allow_persist=True`` and
+    pass ``persist=True`` for an on-disk update.
+    """
+
+    def __init__(
+        self,
+        design_path: str | Path | None = None,
+        *,
+        allow_persist: bool = False,
+    ) -> None:
+        self.design_path = Path(design_path or DEFAULT_DESIGN).resolve()
+        if allow_persist and self.design_path == DEFAULT_DESIGN.resolve():
+            raise ValueError(
+                "Refusing persistent writes to the canonical Orion fixture; "
+                "copy the JSON design first."
+            )
+        self.allow_persist = allow_persist
+        self.eda = MiniEda(self.design_path)
+        self._session_revision = 0
+
+    def list_tools(self) -> list[dict[str, Any]]:
+        """Return copies so a caller cannot alter the service's schemas."""
+
+        return copy.deepcopy(list(TOOL_CATALOG))
+
+    def call(self, tool_name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Invoke a named tool and normalize every expected failure.
+
+        This is the contract used by *both* the direct adapter and the MCP
+        transport.  Tool-level errors are data, not uncaught exceptions, which
+        makes them straightforward for an agent to inspect.
+        """
+
+        try:
+            if not isinstance(tool_name, str) or not tool_name:
+                raise ToolError("INVALID_TOOL_NAME", "tool_name must be a non-empty string")
+            if arguments is None:
+                arguments = {}
+            if not isinstance(arguments, dict):
+                raise ToolError("INVALID_ARGUMENTS", "arguments must be a JSON object")
+            result = self._dispatch(tool_name, arguments)
+            return {"ok": True, "result": _json_copy(result)}
+        except ToolError as exc:
+            return {"ok": False, "error": exc.to_dict()}
+        except NotFoundError as exc:
+            return {
+                "ok": False,
+                "error": ToolError(
+                    "NOT_FOUND", str(exc), error_type="NotFoundError"
+                ).to_dict(),
+            }
+        except ValidationError as exc:
+            return {
+                "ok": False,
+                "error": ToolError(
+                    "EDA_VALIDATION_ERROR", str(exc), error_type="ValidationError"
+                ).to_dict(),
+            }
+        except Exception:  # noqa: BLE001 - boundary must not crash an MCP request
+            # Do not leak tracebacks or filesystem details through an agent tool.
+            return {
+                "ok": False,
+                "error": ToolError(
+                    "INTERNAL_ERROR",
+                    "The explorer could not complete this request.",
+                    error_type="InternalError",
+                ).to_dict(),
+            }
+
+    def _dispatch(self, tool_name: str, arguments: dict[str, Any]) -> Any:
+        handlers: dict[str, Callable[[dict[str, Any]], Any]] = {
+            "list_components": self._list_components,
+            "list_links": self._list_links,
+            "get_component": self._get_component,
+            "get_link": self._get_link,
+            "search": self._search,
+            "validate_design": self._validate_design,
+            "update_property": self._update_property,
+            "export_report": self._export_report,
+        }
+        try:
+            handler = handlers[tool_name]
+        except KeyError as exc:
+            raise ToolError(
+                "UNKNOWN_TOOL",
+                f"Unknown tool: {tool_name}",
+                error_type="UnknownToolError",
+                details={"tool_name": tool_name},
+            ) from exc
+        return handler(arguments)
+
+    def _list_components(self, arguments: dict[str, Any]) -> list[dict[str, Any]]:
+        _check_keys(arguments, {"kind"})
+        kind = _optional_nonempty_string(arguments, "kind")
+        return [_copy_element(component) for component in self.eda.list_components(kind=kind)]
+
+    def _list_links(self, arguments: dict[str, Any]) -> list[dict[str, Any]]:
+        _check_keys(arguments, {"src", "dst"})
+        src = _optional_nonempty_string(arguments, "src")
+        dst = _optional_nonempty_string(arguments, "dst")
+        return [_copy_element(link) for link in self.eda.list_links(src=src, dst=dst)]
+
+    def _get_component(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        _check_keys(arguments, {"component_id"})
+        component_id = _required_nonempty_string(arguments, "component_id")
+        try:
+            return _copy_element(self.eda.get_component(component_id))
+        except NotFoundError as exc:
+            raise ToolError(
+                "NOT_FOUND",
+                f"No component exists with id '{component_id}'.",
+                error_type="NotFoundError",
+                details={"element_type": "component", "element_id": component_id},
+            ) from exc
+
+    def _get_link(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        _check_keys(arguments, {"link_id"})
+        link_id = _required_nonempty_string(arguments, "link_id")
+        try:
+            return _copy_element(self.eda.get_link(link_id))
+        except NotFoundError as exc:
+            raise ToolError(
+                "NOT_FOUND",
+                f"No link exists with id '{link_id}'.",
+                error_type="NotFoundError",
+                details={"element_type": "link", "element_id": link_id},
+            ) from exc
+
+    def _search(self, arguments: dict[str, Any]) -> list[dict[str, Any]]:
+        _check_keys(arguments, {"query", "scope", "match_mode"})
+        query = _required_nonempty_string(arguments, "query")
+        scope = _enum_argument(arguments, "scope", {"all", "components", "links"}, "all")
+        match_mode = _enum_argument(arguments, "match_mode", {"smart", "substring"}, "smart")
+        query_folded = query.casefold()
+        hits: list[dict[str, Any]] = []
+
+        if scope in {"all", "components"}:
+            for component in self.eda.list_components():
+                matched_fields = _component_matches(component, query_folded, match_mode)
+                if matched_fields:
+                    hits.append(
+                        {
+                            "type": "component",
+                            "matched_fields": matched_fields,
+                            **_copy_element(component),
+                        }
+                    )
+
+        if scope in {"all", "links"}:
+            for link in self.eda.list_links():
+                matched_fields = _link_matches(link, query_folded, match_mode)
+                if matched_fields:
+                    hits.append(
+                        {
+                            "type": "link",
+                            "matched_fields": matched_fields,
+                            **_copy_element(link),
+                        }
+                    )
+
+        # A fixed order makes transcripts and automated results easy to compare.
+        return sorted(hits, key=lambda hit: (hit["type"], hit["id"]))
+
+    def _validate_design(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        _check_keys(arguments, set())
+        issues: list[dict[str, Any]] = []
+
+        # Preserve MiniEda's existing numeric-bandwidth checks rather than
+        # duplicating or replacing them in the explorer layer.
+        for issue in self.eda.validate():
+            issues.append({**issue.to_dict(), "details": {}})
+
+        component_ids = set(self.eda.design.components)
+        for link in self.eda.list_links():
+            if link.src not in component_ids:
+                issues.append(
+                    _issue(
+                        "DANGLING_LINK_SOURCE",
+                        "error",
+                        link.id,
+                        f"Link {link.id} references missing source component '{link.src}'.",
+                        endpoint="src",
+                        component_id=link.src,
+                    )
+                )
+            if link.dst not in component_ids:
+                issues.append(
+                    _issue(
+                        "DANGLING_LINK_DESTINATION",
+                        "error",
+                        link.id,
+                        f"Link {link.id} references missing destination component '{link.dst}'.",
+                        endpoint="dst",
+                        component_id=link.dst,
+                    )
+                )
+            if link.src == link.dst:
+                issues.append(
+                    _issue(
+                        "SELF_LOOP",
+                        "warning",
+                        link.id,
+                        f"Link {link.id} starts and ends at '{link.src}'; review whether this loop is intentional.",
+                        component_id=link.src,
+                    )
+                )
+
+        issues.sort(key=lambda issue: (issue["code"], issue["element_id"] or ""))
+        error_count = sum(issue["severity"] == "error" for issue in issues)
+        warning_count = sum(issue["severity"] == "warning" for issue in issues)
+        return {
+            "valid": error_count == 0,
+            "summary": {
+                "issue_count": len(issues),
+                "error_count": error_count,
+                "warning_count": warning_count,
+            },
+            "issues": issues,
+        }
+
+    def _update_property(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        _check_keys(arguments, {"element_id", "prop_path", "value", "persist", "dry_run"})
+        element_id = _required_nonempty_string(arguments, "element_id")
+        prop_path = _valid_property_path(arguments)
+        if "value" not in arguments:
+            raise ToolError("MISSING_ARGUMENT", "Missing required argument: value")
+        value = copy.deepcopy(arguments["value"])
+        if not _is_json_value(value):
+            raise ToolError(
+                "INVALID_VALUE",
+                "value must be a finite JSON value (objects need string keys).",
+            )
+        persist = _boolean_argument(arguments, "persist", False)
+        dry_run = _boolean_argument(arguments, "dry_run", False)
+        if persist and dry_run:
+            raise ToolError(
+                "INVALID_ARGUMENT_COMBINATION",
+                "persist and dry_run cannot both be true.",
+            )
+        element, element_type = self._find_element(element_id)
+        _ensure_property_path_does_not_replace_a_scalar(element.properties, prop_path)
+        previous_value = _read_property_path(element.properties, prop_path)
+        before = None if previous_value is _MISSING else copy.deepcopy(previous_value)
+        changed = previous_value is _MISSING or previous_value != value
+
+        if dry_run:
+            return {
+                "element_id": element_id,
+                "element_type": element_type,
+                "property_path": prop_path,
+                "property_existed": previous_value is not _MISSING,
+                "before": before,
+                "after": value,
+                "changed": changed,
+                "applied": False,
+                "persisted": False,
+                "mode": "dry_run",
+                "session_revision": self._session_revision,
+            }
+
+        if persist and not self.allow_persist:
+            raise ToolError(
+                "PERSISTENCE_DISABLED",
+                "Persistent writes are disabled for this explorer instance. "
+                "Use a copied design with explicit allow_persist=True.",
+                error_type="PermissionError",
+            )
+
+        before_file_sha256 = _file_sha256(self.design_path)
+        try:
+            updated = self.eda.update_property(
+                element_id, prop_path, value, persist=persist
+            )
+        except NotFoundError as exc:
+            # The element was resolved above, but preserve a stable answer if
+            # an underlying implementation changes between the two calls.
+            raise ToolError(
+                "NOT_FOUND", str(exc), error_type="NotFoundError"
+            ) from exc
+        except ValidationError as exc:
+            raise ToolError("INVALID_PROPERTY_PATH", str(exc)) from exc
+
+        self._session_revision += 1
+        after_file_sha256 = _file_sha256(self.design_path)
+        return {
+            "element_id": element_id,
+            "element_type": element_type,
+            "property_path": prop_path,
+            "property_existed": previous_value is not _MISSING,
+            "before": before,
+            "after": value,
+            "changed": changed,
+            "applied": True,
+            "persisted": persist,
+            "mode": "persistent" if persist else "session",
+            "session_revision": self._session_revision,
+            "file_sha256_before": before_file_sha256,
+            "file_sha256_after": after_file_sha256,
+            "element": copy.deepcopy(updated),
+        }
+
+    def _export_report(self, arguments: dict[str, Any]) -> str | dict[str, Any]:
+        _check_keys(arguments, {"format"})
+        fmt = _enum_argument(arguments, "format", {"text", "json"}, "text")
+        validation = self._validate_design({})
+        components_by_kind: dict[str, int] = {}
+        for component in self.eda.list_components():
+            components_by_kind[component.kind] = components_by_kind.get(component.kind, 0) + 1
+
+        fully_connected_links = sum(
+            link.src in self.eda.design.components and link.dst in self.eda.design.components
+            for link in self.eda.list_links()
+        )
+        report = {
+            "design": {
+                "name": self.eda.design.name,
+                "version": self.eda.design.version,
+                "description": self.eda.design.description,
+            },
+            "inventory": {
+                "component_count": len(self.eda.design.components),
+                "link_count": len(self.eda.design.links),
+                "components_by_kind": dict(sorted(components_by_kind.items())),
+                "fully_connected_link_count": fully_connected_links,
+            },
+            "validation": validation,
+        }
+        if fmt == "json":
+            return report
+
+        issue_lines = [
+            f"- {issue['severity'].upper()} {issue['code']} ({issue['element_id']}): "
+            f"{issue['message']}"
+            for issue in validation["issues"]
+        ]
+        return "\n".join(
+            [
+                f"Design report: {report['design']['name']} (v{report['design']['version']})",
+                report["design"]["description"],
+                f"Components: {report['inventory']['component_count']} "
+                + "(" + ", ".join(
+                    f"{kind}={count}"
+                    for kind, count in report["inventory"]["components_by_kind"].items()
+                ) + ")",
+                f"Links: {report['inventory']['link_count']} "
+                f"({report['inventory']['fully_connected_link_count']} with existing endpoints)",
+                "Validation: "
+                f"{validation['summary']['error_count']} error(s), "
+                f"{validation['summary']['warning_count']} warning(s).",
+                "Findings:",
+                *(issue_lines or ["- None"]),
+            ]
+        )
+
+    def _find_element(self, element_id: str) -> tuple[Any, str]:
+        if element_id in self.eda.design.components:
+            return self.eda.get_component(element_id), "component"
+        if element_id in self.eda.design.links:
+            return self.eda.get_link(element_id), "link"
+        raise ToolError(
+            "NOT_FOUND",
+            f"No component or link exists with id '{element_id}'.",
+            error_type="NotFoundError",
+            details={"element_id": element_id},
+        )
+
+
+def _check_keys(arguments: dict[str, Any], allowed: set[str]) -> None:
+    unexpected = sorted(set(arguments) - allowed)
+    if unexpected:
+        raise ToolError(
+            "UNEXPECTED_ARGUMENT",
+            "Unexpected argument(s): " + ", ".join(unexpected),
+            details={"unexpected": unexpected, "allowed": sorted(allowed)},
+        )
+
+
+def _required_nonempty_string(arguments: dict[str, Any], name: str) -> str:
+    if name not in arguments:
+        raise ToolError("MISSING_ARGUMENT", f"Missing required argument: {name}")
+    value = arguments[name]
+    if not isinstance(value, str) or not value.strip():
+        raise ToolError("INVALID_ARGUMENT", f"{name} must be a non-empty string")
+    return value.strip()
+
+
+def _optional_nonempty_string(arguments: dict[str, Any], name: str) -> str | None:
+    if name not in arguments:
+        return None
+    return _required_nonempty_string(arguments, name)
+
+
+def _enum_argument(
+    arguments: dict[str, Any], name: str, allowed: set[str], default: str
+) -> str:
+    if name not in arguments:
+        return default
+    value = arguments[name]
+    if not isinstance(value, str) or value not in allowed:
+        raise ToolError(
+            "INVALID_ARGUMENT",
+            f"{name} must be one of: " + ", ".join(sorted(allowed)),
+        )
+    return value
+
+
+def _boolean_argument(arguments: dict[str, Any], name: str, default: bool) -> bool:
+    if name not in arguments:
+        return default
+    value = arguments[name]
+    # ``bool('false')`` is true in Python, so type checking is significant here.
+    if not isinstance(value, bool):
+        raise ToolError("INVALID_ARGUMENT", f"{name} must be a boolean")
+    return value
+
+
+def _valid_property_path(arguments: dict[str, Any]) -> str:
+    prop_path = _required_nonempty_string(arguments, "prop_path")
+    parts = prop_path.split(".")
+    if not all(_PATH_SEGMENT.fullmatch(part) for part in parts):
+        raise ToolError(
+            "INVALID_PROPERTY_PATH",
+            "prop_path must be a dotted path made of letters, digits, and underscores; "
+            "each segment must start with a letter or underscore.",
+        )
+    return prop_path
+
+
+def _copy_element(element: Any) -> dict[str, Any]:
+    """``to_dict`` only shallow-copies properties; tool replies need deep copies."""
+
+    return copy.deepcopy(element.to_dict())
+
+
+def _json_copy(value: Any) -> Any:
+    """Return an independent JSON-compatible copy and assert our contract."""
+
+    try:
+        return json.loads(json.dumps(value, ensure_ascii=False, allow_nan=False))
+    except (TypeError, ValueError) as exc:
+        raise ToolError("INTERNAL_ERROR", "Tool returned a non-JSON result.") from exc
+
+
+def _is_json_value(value: Any) -> bool:
+    if value is None or isinstance(value, (str, bool)):
+        return True
+    if isinstance(value, int):
+        return True
+    if isinstance(value, float):
+        return math.isfinite(value)
+    if isinstance(value, list):
+        return all(_is_json_value(item) for item in value)
+    if isinstance(value, dict):
+        return all(isinstance(key, str) and _is_json_value(item) for key, item in value.items())
+    return False
+
+
+def _read_property_path(properties: dict[str, Any], path: str) -> Any:
+    current: Any = properties
+    for part in path.split("."):
+        if not isinstance(current, dict) or part not in current:
+            return _MISSING
+        current = current[part]
+    return current
+
+
+def _ensure_property_path_does_not_replace_a_scalar(
+    properties: dict[str, Any], path: str
+) -> None:
+    """Reject ``qos.level`` when ``qos`` is already a string.
+
+    The supplied MiniEda helper creates dictionaries for missing intermediate
+    paths. That is useful for a new path, but replacing an existing scalar
+    would silently discard data, so the explorer treats it as a controlled
+    update conflict instead.
+    """
+
+    current: Any = properties
+    for part in path.split(".")[:-1]:
+        if part not in current:
+            return
+        current = current[part]
+        if not isinstance(current, dict):
+            raise ToolError(
+                "PROPERTY_PATH_CONFLICT",
+                f"Cannot create '{path}' because '{part}' is already a non-object property.",
+                details={"property_path": path, "conflicting_segment": part},
+            )
+
+
+def _file_sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _issue(
+    code: str,
+    severity: str,
+    element_id: str,
+    message: str,
+    **details: str,
+) -> dict[str, Any]:
+    return {
+        "code": code,
+        "severity": severity,
+        "element_id": element_id,
+        "message": message,
+        "details": details,
+    }
+
+
+def _component_matches(component: Any, query: str, mode: str) -> list[str]:
+    fields: list[tuple[str, Any]] = [
+        ("id", component.id),
+        ("name", component.name),
+        ("kind", component.kind),
+        *[(f"properties.{key}", value) for key, value in component.properties.items()],
+    ]
+    return _matched_fields(fields, query, mode, id_field="id")
+
+
+def _link_matches(link: Any, query: str, mode: str) -> list[str]:
+    fields: list[tuple[str, Any]] = [
+        ("id", link.id),
+        ("src", link.src),
+        ("dst", link.dst),
+        *[(f"properties.{key}", value) for key, value in link.properties.items()],
+    ]
+    return _matched_fields(fields, query, mode, id_field="id", endpoint_fields={"src", "dst"})
+
+
+def _matched_fields(
+    fields: list[tuple[str, Any]],
+    query: str,
+    mode: str,
+    *,
+    id_field: str,
+    endpoint_fields: set[str] | None = None,
+) -> list[str]:
+    """Implement the documented search policy and explain each hit's reason."""
+
+    matches: list[str] = []
+    for field_name, raw_value in fields:
+        value = str(raw_value).casefold()
+        if mode == "substring":
+            if query in value:
+                matches.append(field_name)
+            continue
+
+        # Smart mode avoids the surprising ``r0`` -> ``ddr0`` substring hit.
+        # IDs match exactly or as prefixes; link endpoints also match exactly.
+        if field_name == id_field and (value == query or value.startswith(query)):
+            matches.append(field_name)
+        elif endpoint_fields and field_name in endpoint_fields and value == query:
+            matches.append(field_name)
+        elif field_name not in {id_field, *(endpoint_fields or set())} and query in value:
+            matches.append(field_name)
+    return matches
+
+
+================================================================================
+
+FILE: tests/test_design_load.py
+================================================================================
+
+import json
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+DESIGN = ROOT / "data" / "designs" / "orion_soc.json"
+
+
+def test_design_json_is_well_formed() -> None:
+    data = json.loads(DESIGN.read_text(encoding="utf-8"))
+    assert "components" in data and "links" in data
+    ids = [c["id"] for c in data["components"]]
+    assert len(ids) == len(set(ids))
+    link_ids = [link["id"] for link in data["links"]]
+    assert len(link_ids) == len(set(link_ids))
+
+
+================================================================================
+
+FILE: tests/test_eda_basic.py
+================================================================================
+
+from pathlib import Path
+
+import pytest
+
+from mini_eda import MiniEda, NotFoundError
+
+
+ROOT = Path(__file__).resolve().parents[1]
+DESIGN = ROOT / "data" / "designs" / "orion_soc.json"
+
+
+@pytest.fixture()
+def eda(tmp_path: Path) -> MiniEda:
+    # Work on a copy so tests never mutate the shared fixture permanently.
+    copy = tmp_path / "orion_soc.json"
+    copy.write_text(DESIGN.read_text(encoding="utf-8"), encoding="utf-8")
+    return MiniEda(copy)
+
+
+def test_load_design(eda: MiniEda) -> None:
+    assert eda.design.name == "orion_soc"
+    assert len(eda.list_components()) >= 5
+    assert len(eda.list_links()) >= 5
+
+
+def test_get_component(eda: MiniEda) -> None:
+    cpu = eda.get_component("cpu0")
+    assert cpu.kind == "initiator"
+    assert cpu.properties.get("protocol") == "AXI4"
+
+
+def test_get_component_missing(eda: MiniEda) -> None:
+    with pytest.raises(NotFoundError):
+        eda.get_component("does_not_exist")
+
+
+def test_update_property_and_reread(eda: MiniEda) -> None:
+    eda.update_property("cpu0", "qos", "low")
+    assert eda.get_component("cpu0").properties["qos"] == "low"
+    eda.reload()
+    assert eda.get_component("cpu0").properties["qos"] == "low"
+
+
+def test_validate_returns_list(eda: MiniEda) -> None:
+    issues = eda.validate()
+    assert isinstance(issues, list)
+
+
+def test_export_report_text(eda: MiniEda) -> None:
+    report = eda.export_report("text")
+    assert isinstance(report, str)
+    assert "orion_soc" in report
+
+
+================================================================================
+
+FILE: tests/test_explorer_service.py
+================================================================================
+
+"""Focused tests for the agent-facing service contract.
+
+The tests use a temporary design copy.  That proves session and persistent
+semantics without ever changing ``data/designs/orion_soc.json``.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import shutil
+import tempfile
+import unittest
+from pathlib import Path
+
+from soc_explorer.adapter import ExplorerAdapter
+from soc_explorer.service import ExplorerService
+
+
+ROOT = Path(__file__).resolve().parents[1]
+DESIGN = ROOT / "data" / "designs" / "orion_soc.json"
+
+
+class ExplorerServiceTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.design_copy = Path(self.temp_dir.name) / "orion_soc.json"
+        shutil.copy2(DESIGN, self.design_copy)
+        self.service = ExplorerService(self.design_copy)
+
+    def tearDown(self) -> None:
+        self.temp_dir.cleanup()
+
+    def test_catalog_covers_all_required_element_operations(self) -> None:
+        catalog = self.service.list_tools()
+        names = {tool["name"] for tool in catalog}
+        self.assertTrue(
+            {
+                "list_components",
+                "list_links",
+                "get_component",
+                "get_link",
+                "search",
+                "validate_design",
+                "update_property",
+                "export_report",
+            }.issubset(names)
+        )
+        update_tool = next(tool for tool in catalog if tool["name"] == "update_property")
+        self.assertTrue(update_tool["mutates"])
+        self.assertEqual(update_tool["arity"], 3)
+
+    def test_list_and_get_are_sorted_and_json_safe(self) -> None:
+        components = self.service.call("list_components", {})
+        self.assertTrue(components["ok"])
+        self.assertEqual([item["id"] for item in components["result"]], sorted(
+            item["id"] for item in components["result"]
+        ))
+        cpu = self.service.call("get_component", {"component_id": "cpu0"})
+        self.assertTrue(cpu["ok"])
+        self.assertEqual(cpu["result"]["kind"], "initiator")
+        links = self.service.call("list_links", {"src": "r0"})
+        self.assertTrue(links["ok"])
+        self.assertTrue(all(link["src"] == "r0" for link in links["result"]))
+
+    def test_missing_and_invalid_input_have_stable_errors(self) -> None:
+        missing = self.service.call("get_component", {"component_id": "absent"})
+        self.assertFalse(missing["ok"])
+        self.assertEqual(missing["error"]["type"], "NotFoundError")
+        self.assertEqual(missing["error"]["code"], "NOT_FOUND")
+
+        bad_boolean = self.service.call(
+            "update_property",
+            {"element_id": "cpu0", "prop_path": "qos", "value": "low", "persist": "false"},
+        )
+        self.assertFalse(bad_boolean["ok"])
+        self.assertEqual(bad_boolean["error"]["code"], "INVALID_ARGUMENT")
+
+        unexpected = self.service.call("list_components", {"sort": "name"})
+        self.assertFalse(unexpected["ok"])
+        self.assertEqual(unexpected["error"]["code"], "UNEXPECTED_ARGUMENT")
+
+        # The stock MiniEda helper would replace the scalar ``qos`` with a
+        # dictionary here. The explorer refuses that surprising destructive path.
+        conflict = self.service.call(
+            "update_property",
+            {"element_id": "cpu0", "prop_path": "qos.level", "value": 3},
+        )
+        self.assertFalse(conflict["ok"])
+        self.assertEqual(conflict["error"]["code"], "PROPERTY_PATH_CONFLICT")
+        self.assertEqual(
+            self.service.call("get_component", {"component_id": "cpu0"})["result"]["properties"]["qos"],
+            "high",
+        )
+
+    def test_smart_search_avoids_a_substring_false_positive(self) -> None:
+        result = self.service.call("search", {"query": "r0"})
+        self.assertTrue(result["ok"])
+        component_ids = [hit["id"] for hit in result["result"] if hit["type"] == "component"]
+        link_ids = [hit["id"] for hit in result["result"] if hit["type"] == "link"]
+        self.assertEqual(component_ids, ["r0"])
+        self.assertNotIn("ddr0", component_ids)
+        self.assertEqual(link_ids, ["L1", "L2", "L3", "L4", "L5", "L8", "L_loop"])
+
+        substring = self.service.call(
+            "search", {"query": "r0", "scope": "components", "match_mode": "substring"}
+        )
+        self.assertTrue(substring["ok"])
+        self.assertIn("ddr0", [hit["id"] for hit in substring["result"]])
+
+    def test_graph_validation_finds_the_two_intentional_orion_issues(self) -> None:
+        result = self.service.call("validate_design", {})
+        self.assertTrue(result["ok"])
+        validation = result["result"]
+        self.assertFalse(validation["valid"])
+        codes = {issue["code"] for issue in validation["issues"]}
+        self.assertIn("DANGLING_LINK_DESTINATION", codes)
+        self.assertIn("SELF_LOOP", codes)
+        dangling = next(
+            issue
+            for issue in validation["issues"]
+            if issue["code"] == "DANGLING_LINK_DESTINATION"
+        )
+        self.assertEqual(dangling["element_id"], "L7")
+        self.assertEqual(dangling["details"]["component_id"], "sram_l2")
+
+    def test_dry_run_changes_nothing_and_session_update_is_visible_only_in_memory(self) -> None:
+        original_hash = _sha256(self.design_copy)
+        dry_run = self.service.call(
+            "update_property",
+            {
+                "element_id": "cpu0",
+                "prop_path": "qos",
+                "value": "low",
+                "dry_run": True,
+            },
+        )
+        self.assertTrue(dry_run["ok"])
+        self.assertFalse(dry_run["result"]["applied"])
+        self.assertEqual(self.service.call("get_component", {"component_id": "cpu0"})["result"]["properties"]["qos"], "high")
+        self.assertEqual(_sha256(self.design_copy), original_hash)
+
+        session_update = self.service.call(
+            "update_property",
+            {"element_id": "cpu0", "prop_path": "qos", "value": "medium", "persist": False},
+        )
+        self.assertTrue(session_update["ok"])
+        self.assertEqual(session_update["result"]["mode"], "session")
+        self.assertEqual(session_update["result"]["file_sha256_before"], original_hash)
+        self.assertEqual(session_update["result"]["file_sha256_after"], original_hash)
+        self.assertEqual(self.service.call("get_component", {"component_id": "cpu0"})["result"]["properties"]["qos"], "medium")
+        self.assertEqual(_sha256(self.design_copy), original_hash)
+
+        # A fresh service reads the untouched file, not the old process's session.
+        fresh_service = ExplorerService(self.design_copy)
+        self.assertEqual(fresh_service.call("get_component", {"component_id": "cpu0"})["result"]["properties"]["qos"], "high")
+
+    def test_persistent_write_requires_opt_in_and_then_survives_reload(self) -> None:
+        denied = self.service.call(
+            "update_property",
+            {"element_id": "cpu0", "prop_path": "qos", "value": "low", "persist": True},
+        )
+        self.assertFalse(denied["ok"])
+        self.assertEqual(denied["error"]["code"], "PERSISTENCE_DISABLED")
+
+        writable = ExplorerService(self.design_copy, allow_persist=True)
+        applied = writable.call(
+            "update_property",
+            {"element_id": "cpu0", "prop_path": "qos", "value": "low", "persist": True},
+        )
+        self.assertTrue(applied["ok"])
+        self.assertTrue(applied["result"]["persisted"])
+        reread = ExplorerService(self.design_copy).call("get_component", {"component_id": "cpu0"})
+        self.assertEqual(reread["result"]["properties"]["qos"], "low")
+
+    def test_service_constructor_protects_the_canonical_fixture_too(self) -> None:
+        with self.assertRaises(ValueError):
+            ExplorerService(DESIGN, allow_persist=True)
+
+    def test_report_is_readable_and_mentions_the_design(self) -> None:
+        response = self.service.call("export_report", {"format": "text"})
+        self.assertTrue(response["ok"])
+        self.assertIn("orion_soc", response["result"])
+        self.assertIn("DANGLING_LINK_DESTINATION", response["result"])
+
+    def test_adapter_uses_the_same_service_contract(self) -> None:
+        adapter = ExplorerAdapter(self.design_copy)
+        response = adapter.call("validate_design", {})
+        self.assertTrue(response["ok"])
+        self.assertEqual(
+            {issue["code"] for issue in response["result"]["issues"]},
+            {"DANGLING_LINK_DESTINATION", "SELF_LOOP"},
+        )
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+================================================================================
+
+FILE: tests/test_mcp_server.py
+================================================================================
+
+"""Wire-level tests for the dependency-free JSON-RPC stdio server."""
+
+from __future__ import annotations
+
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+from typing import Any
+
+from soc_explorer.mcp_server import StdioMcpServer
+from soc_explorer.service import ExplorerService
+
+
+ROOT = Path(__file__).resolve().parents[1]
+DESIGN = ROOT / "data" / "designs" / "orion_soc.json"
+
+
+class McpServerTests(unittest.TestCase):
+    def test_in_process_protocol_errors_are_json_rpc_errors(self) -> None:
+        server = StdioMcpServer(ExplorerService(DESIGN))
+        parse_like_error = server.handle({"jsonrpc": "1.0", "id": 1, "method": "ping"})
+        self.assertEqual(parse_like_error["error"]["code"], -32600)
+        unknown_method = server.handle({"jsonrpc": "2.0", "id": 2, "method": "no/such/method"})
+        self.assertEqual(unknown_method["error"]["code"], -32601)
+        self.assertIsNone(
+            server.handle({"jsonrpc": "2.0", "method": "notifications/initialized"})
+        )
+
+    def test_stdio_server_discovers_and_calls_tools(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            copied_design = Path(temp_dir) / "orion_soc.json"
+            shutil.copy2(DESIGN, copied_design)
+            messages: list[dict[str, Any]] = [
+                {
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "initialize",
+                    "params": {"protocolVersion": "2025-06-18", "capabilities": {}},
+                },
+                {"jsonrpc": "2.0", "method": "notifications/initialized"},
+                {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
+                {
+                    "jsonrpc": "2.0",
+                    "id": 3,
+                    "method": "tools/call",
+                    "params": {"name": "validate_design", "arguments": {}},
+                },
+                {
+                    "jsonrpc": "2.0",
+                    "id": 4,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "get_component",
+                        "arguments": {"component_id": "does_not_exist"},
+                    },
+                },
+            ]
+            completed = _run_server(messages, copied_design)
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        responses = {
+            response["id"]: response
+            for response in (json.loads(line) for line in completed.stdout.splitlines())
+        }
+        self.assertEqual(set(responses), {1, 2, 3, 4})
+        self.assertEqual(responses[1]["result"]["serverInfo"]["name"], "orion-soc-explorer-easy")
+        tool_names = {tool["name"] for tool in responses[2]["result"]["tools"]}
+        self.assertIn("validate_design", tool_names)
+
+        validation = _decode_tool_content(responses[3])
+        self.assertIn(
+            "DANGLING_LINK_DESTINATION", {issue["code"] for issue in validation["issues"]}
+        )
+        self.assertTrue(responses[4]["result"]["isError"])
+        missing = _decode_tool_content(responses[4])
+        self.assertEqual(missing["code"], "NOT_FOUND")
+
+    def test_server_refuses_to_enable_persistence_for_canonical_file(self) -> None:
+        completed = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "soc_explorer.mcp_server",
+                "--allow-persist",
+            ],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd=ROOT,
+            env=_environment(),
+            timeout=10,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 2)
+        self.assertIn("Refusing --allow-persist", completed.stderr)
+
+
+def _run_server(messages: list[dict[str, Any]], design_path: Path) -> subprocess.CompletedProcess[str]:
+    protocol_input = "".join(json.dumps(message) + "\n" for message in messages)
+    return subprocess.run(
+        [
+            sys.executable,
+            "-u",
+            "-m",
+            "soc_explorer.mcp_server",
+            "--design",
+            str(design_path),
+        ],
+        input=protocol_input,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        cwd=ROOT,
+        env=_environment(),
+        timeout=10,
+        check=False,
+    )
+
+
+def _environment() -> dict[str, str]:
+    environment = os.environ.copy()
+    environment["PYTHONPATH"] = str(ROOT) + os.pathsep + environment.get("PYTHONPATH", "")
+    return environment
+
+
+def _decode_tool_content(response: dict[str, Any]) -> Any:
+    text = response["result"]["content"][0]["text"]
+    return json.loads(text)
